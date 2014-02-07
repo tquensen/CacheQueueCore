@@ -36,7 +36,7 @@ class Piwik
         }
         
         // set timeout
-		$context = stream_context_create(array('http' => array('timeout' => !empty($config['timeout']) ? $config['timeout'] : 15)));
+        $context = stream_context_create(array('http' => array('timeout' => !empty($config['timeout']) ? $config['timeout'] : 15)));
         
         $response = @file_get_contents($requestUrl, false, $context);
         $responseData = @unserialize($response);

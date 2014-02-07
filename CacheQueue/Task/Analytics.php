@@ -11,10 +11,10 @@ class Analytics
     
     private function initClient($applicationName, $clientKey, $clientSecret, $refresh_token, $connection, $logger)
     {
-        require_once 'Google/apiClient.php';
+        require_once 'Google/Client.php';
         require_once 'Google/contrib/apiAnalyticsService.php';
 
-        $client = new \apiClient();
+        $client = new \Google_Client();
         $client->setApplicationName($applicationName);
         $client->setClientId($clientKey);
         $client->setClientSecret($clientSecret);

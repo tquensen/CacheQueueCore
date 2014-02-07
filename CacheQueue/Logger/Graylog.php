@@ -9,11 +9,10 @@ class Graylog implements LoggerInterface
     private $showPid = false;
     private $logLevel = 0;
     
+    private $publisher = null;
+    
     public function __construct($config = array())
     {
-        if (!empty($config['gelfFile']) && !class_exists('\\GELFMessage')) {
-            require_once($config['gelfFile']);
-        }
         $this->graylogHostname = $config['graylogHostname'];
         $this->graylogPort = $config['graylogPort'];
         $this->host = $config['host'];
@@ -50,22 +49,49 @@ class Graylog implements LoggerInterface
         }
     }
     
+    private function initClient()
+    {
+        $transport = new \Gelf\Transport\UdpTransport($this->graylogHostname, $this->graylogPort, \Gelf\Transport\UdpTransport::CHUNK_SIZE_LAN);
+        $this->publisher = new \Gelf\Publisher();
+        $this->publisher->addTransport($transport);
+    }
+    
     private function doLog($message, $level, $exception = null)
     {
-        $gelf = new \GELFMessage($this->graylogHostname, $this->graylogPort);
-
-        $gelf->setShortMessage(($this->showPid ? 'PID '.getmypid().' | ' : '').$message);
-        $gelf->setHost($this->host);
-        $gelf->setTimestamp(time());
-        $gelf->setLevel($level);
-        $gelf->setFacility($this->facility);
-        if ($exception) {
-            $gelf->setFullMessage((string) $exception);
-            $gelf->setFile($exception->getFile());
-            $gelf->setLine($exception->getLine());
+        if (empty($this->publisher)) {
+            $this->initClient();
         }
         
-        $gelf->send();
+        if ($this->showPid) {
+            $message = 'PID '.getmypid().' | '.$message;
+        }
+        
+        $gelfMessage = new \Gelf\Message();
+        
+        $gelfMessage->setShortMessage($message);
+        $gelfMessage->setHost($this->host);
+        $gelfMessage->setTimestamp(time());
+        $gelfMessage->setLevel($level);
+        $gelfMessage->setFacility($this->facility);
+        if ($exception) {
+            $longText = "";
+            do {
+                $longText .= sprintf(
+                    "%s: %s (%d)\n\n%s\n",
+                    get_class($exception),
+                    $exception->getMessage(),
+                    $exception->getCode(),
+                    $exception->getTraceAsString()
+                );
+
+                $exception = $exception->getPrevious();
+            } while ($exception && $longText .= "\n--\n\n");
+            $gelfMessage->setFullMessage($longText);
+            $gelfMessage->setFile($exception->getFile());
+            $gelfMessage->setLine($exception->getLine());
+        }
+        
+        $this->publisher->publish($gelfMessage);
     }
 
 }

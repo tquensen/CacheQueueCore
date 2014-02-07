@@ -13,10 +13,6 @@ class Sentry implements LoggerInterface
     
     public function __construct($config = array())
     {
-        if (!empty($config['ravenAutoloaderFile']) && !class_exists('\\Raven_Autoloader')) {
-            require_once($config['ravenAutoloaderFile']);
-            \Raven_Autoloader::register();
-        }
         $this->sentryDSN = $config['sentryDSN'];
         $this->options = $config['options'];
         $this->showPid = !empty($config['showPid']);
@@ -26,13 +22,14 @@ class Sentry implements LoggerInterface
             $this->initClient();
             
             if (!empty($config['registerErrorHandler']) || !empty($config['registerExceptionHandler'])) {
-                $this->errorHandler = new Raven_ErrorHandler($this->ravenClient);
+                $this->errorHandler = new \Raven_ErrorHandler($this->ravenClient);
                 if (!empty($config['registerErrorHandler'])) {
-                    set_error_handler(array($this->errorHandler, 'handleError'));
+                    $this->errorHandler->registerExceptionHandler();
                 }
                 if (!empty($config['registerExceptionHandler'])) {
-                    set_exception_handler(array($this->errorHandler, 'handleException'));
+                    $this->errorHandler->registerErrorHandler();
                 }
+                $this->errorHandler->registerShutdownFunction();
             }
         }
     }

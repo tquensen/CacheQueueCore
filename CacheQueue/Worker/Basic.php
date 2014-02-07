@@ -64,11 +64,6 @@ class Basic implements WorkerInterface
         $taskConfig = !empty($taskData[2]) ? $taskData[2] : array();
 
         if (!class_exists($taskClass)) {
-            $taskFile = str_replace('\\', \DIRECTORY_SEPARATOR, trim($taskClass, '\\')).'.php';
-            require_once($taskFile);
-        }
-
-        if (!class_exists($taskClass)) {
             throw new Exception('class '.$taskClass.' not found.');
         }
         if (!method_exists($taskClass, $taskMethod)) {
