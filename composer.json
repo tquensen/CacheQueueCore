@@ -1,0 +1,16 @@
+{
+    "name": "tqn/CacheQueueCore",
+    "description": "CacheQueue Lib",
+    "authors": [
+        {
+            "name": "Thomas Quensen",
+            "email": "tquensen@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "CacheQueue\\": "CacheQueue" }
+    },    
+    "require": {
+        
+    }
+}
