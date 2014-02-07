@@ -11,15 +11,15 @@ class Analytics
     
     private function initClient($applicationName, $clientKey, $clientSecret, $refresh_token, $connection, $logger)
     {
-        require_once 'Google/Client.php';
-        require_once 'Google/contrib/apiAnalyticsService.php';
+
 
         $client = new \Google_Client();
         $client->setApplicationName($applicationName);
         $client->setClientId($clientKey);
         $client->setClientSecret($clientSecret);
+        $client->addScope(\Google_Service_Analytics::ANALYTICS_READONLY);
         
-        $service = new \apiAnalyticsService($client);
+        $service = new \Google_Service_Analytics($client);
         
         $this->tokenCacheKey = 'analytics_token_'.md5($clientKey.$clientSecret.$refresh_token);
         
