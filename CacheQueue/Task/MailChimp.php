@@ -32,7 +32,7 @@ class MailChimp
         try {
             return $mc->call($params['method'], isset($params['parameter']) ? $params['parameter'] : array());
         } catch (\Exception $e) {
-            throw new Exception('MailChimp API request '.$params['method']. 'failed with error '.$e->getCode().': '.$e->getMessage());
+            throw new Exception('MailChimp API request '.$params['method']. ' failed with error '.$e->getCode().': '.$e->getMessage());
         }
     }
     
