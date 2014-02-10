@@ -12,11 +12,9 @@ class Analytics
     private $token = null;
     private $tokenCacheKey = null;
 
-    private function initClient($applicationName, $clientKey, $clientSecret, $refresh_token, $connection, $logger)
+    private function initClient($applicationName, $clientKey, $clientSecret, $refresh_token, $connection, $logger, $googleConfigIniLocation = null)
     {
-
-
-        $client = new \Google_Client();
+        $client = new \Google_Client($googleConfigIniLocation);
         $client->setApplicationName($applicationName);
         $client->setClientId($clientKey);
         $client->setClientSecret($clientSecret);
@@ -55,6 +53,8 @@ class Analytics
             $config['applicationName'] = 'unknown';
         }
 
+        $googleConfigIniLocation = !empty($config['googleConfigIniLocation']) ? $config['googleConfigIniLocation'] : null;
+        
         $op = !empty($params['operator']) ? $params['operator'] : '==';
         $path = !empty($params['pagePath']) ? $params['pagePath'] : '/';
         $pathStr = !empty($params['pagePath']) ? 'ga:pagePath' . $op . $params['pagePath'] : '';
@@ -82,7 +82,7 @@ class Analytics
                     $bulkCacheData = $worker->getConnection()->get($bulkCacheKey);
                     if (!$bulkCacheData || !$bulkCacheData['is_fresh']) {
 
-                        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger());
+                        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
 
                         if ($logger = $worker->getLogger()) {
                             $logger->logDebug('Analytics getMetric (' . $metric . '): no BulkCache for ' . $bulkCacheKey . ', got lock ' . $lockKey . ' and fetching data');
@@ -239,7 +239,7 @@ class Analytics
                 $logger->logDebug('Analytics getMetric (' . $metric . ') from BulkCache: ' . (!empty($params['hostname']) ? 'Host=' . $params['hostname'] . ' | ' : '') . 'Path=' . $path . ' | COUNT=' . $count);
             }
         } else {
-            $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger());
+            $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
 
             $tries = 3;
             while (true) {
@@ -317,8 +317,10 @@ class Analytics
         if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey)) {
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
+        
+        $googleConfigIniLocation = !empty($config['googleConfigIniLocation']) ? $config['googleConfigIniLocation'] : null;
 
-        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger());
+        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
 
         $dateFrom = !empty($params['dateFrom']) ? $params['dateFrom'] : '2005-01-01';
         $dateTo = !empty($params['dateTo']) ? $params['dateTo'] : date('Y-m-d');
@@ -403,7 +405,9 @@ class Analytics
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
 
-        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger());
+        $googleConfigIniLocation = !empty($config['googleConfigIniLocation']) ? $config['googleConfigIniLocation'] : null;
+        
+        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
 
         $dateFrom = !empty($params['dateFrom']) ? $params['dateFrom'] : '2005-01-01';
         $dateTo = !empty($params['dateTo']) ? $params['dateTo'] : date('Y-m-d');
@@ -500,7 +504,9 @@ class Analytics
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
 
-        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger());
+        $googleConfigIniLocation = !empty($config['googleConfigIniLocation']) ? $config['googleConfigIniLocation'] : null;
+        
+        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
 
         $dateFrom = !empty($params['dateFrom']) ? $params['dateFrom'] : date('Y-m-d', mktime(0, 0, 0, date('m') - 1, date('d'), date('Y')));
         $dateTo = !empty($params['dateTo']) ? $params['dateTo'] : date('Y-m-d');
