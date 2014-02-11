@@ -26,7 +26,7 @@ class Mongo implements ConnectionInterface
     
     public function setup()
     {
-        $this->collection->ensureIndex(array('queued' => 1, 'queue_priority' => 1), array('w' => $this->w));
+        $this->collection->ensureIndex(array('queued' => 1, 'queue_start' => 1, 'queue_priority' => 1), array('w' => $this->w));
 
         $this->collection->ensureIndex(array('fresh_until' => 1, 'tags' => 1), array('w' => $this->w));
 
@@ -114,7 +114,7 @@ class Mongo implements ConnectionInterface
     {
         $result = $this->db->command(array(
             'findAndModify' => $this->collectionName,
-            'query' => array('queued' => true),
+            'query' => array('queued' => true, 'queue_start' => array('$lte' => new \MongoDate())),
             'sort' => array('queue_priority' => 1),
             'update' => array('$set' => array('queued' => $workerId))
         ));
@@ -205,7 +205,7 @@ class Mongo implements ConnectionInterface
         
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
     {
         if ($key === true) {
             $key = 'temp_'.md5(microtime(true).rand(10000,99999));
@@ -216,7 +216,8 @@ class Mongo implements ConnectionInterface
             $temp = false;
         }
         
-        $freshUntil = new \MongoDate(time() + $freshFor);
+        $freshUntil = new \MongoDate(time() + $freshFor + $delay);
+        $queueStart = new \MongoDate(time() + $delay);
         
         $tags = array_values((array) $tags);
         
@@ -233,7 +234,8 @@ class Mongo implements ConnectionInterface
                         'task' => $task,
                         'params' => $params,
                         'temp' => $temp,
-                        'queue_priority' => $priority
+                        'queue_priority' => $priority,
+                        'queue_start' => $queueStart
                     )),
                     array('upsert' => true, 'w' => $this->w)
                 );
@@ -242,8 +244,8 @@ class Mongo implements ConnectionInterface
                     array(
                         '_id' => $key,
                         '$nor' => array(
-                            array('fresh_until' => array('$gte' => new \MongoDate())),
-                            array('queue_fresh_until' => array('$gte' => new \MongoDate()))
+                            array('fresh_until' => array('$gte' => $queueStart)),
+                            array('queue_fresh_until' => array('$gte' => new $queueStart))
                         )
                     ),
                     array('$set' => array(
@@ -253,7 +255,8 @@ class Mongo implements ConnectionInterface
                         'task' => $task,
                         'params' => $params,
                         'temp' => $temp,
-                        'queue_priority' => $priority
+                        'queue_priority' => $priority,
+                        'queue_start' => $queueStart
                     )),
                     array('upsert' => true, 'w' => $this->w)
                 );

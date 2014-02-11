@@ -33,17 +33,17 @@ class Basic implements ClientInterface
         return $this->connection->set($key, $data, $freshFor, $force, $tags);
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
     {
         if ($freshFor === true) {
             $freshFor = 315360000; // 10 years
         }
-        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority);
+        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay);
     }
     
-    public function queueTemporary($task, $params, $priority = 50)
+    public function queueTemporary($task, $params, $priority = 50, $delay = 0)
     {
-        return $this->connection->queue(true, $task, $params, true, true, array(), $priority);
+        return $this->connection->queue(true, $task, $params, true, true, array(), $priority, $delay);
     }
     
     public function run($task, $params)
@@ -103,14 +103,14 @@ class Basic implements ClientInterface
         return !isset($result['data']) ? false : $result['data'];
     }
 
-    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array())
+    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
     {
         if ($freshFor === true) {
             $freshFor = 315360000; // 10 years
         }
         $result = $this->connection->get($key);
         if (!$result || (!$result['is_fresh'] && !$result['queue_is_fresh']) || $force) {
-            $this->queue($key, $task, $params, $freshFor, $force, $tags);
+            $this->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay);
         }
         return !isset($result['data']) ? false : $result['data'];
     }

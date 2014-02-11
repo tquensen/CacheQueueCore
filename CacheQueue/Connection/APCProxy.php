@@ -84,10 +84,10 @@ class APCProxy implements ConnectionInterface
         return $this->connection->set($key, $data, $freshFor, $force, $tags);
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
     {
         if (apc_exists($this->prefix.$key)) apc_delete($this->prefix.$key);
-        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority);
+        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay);
     }
 
     public function getQueueCount()

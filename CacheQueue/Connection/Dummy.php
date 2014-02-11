@@ -43,7 +43,7 @@ class Dummy implements ConnectionInterface
         return false;
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
     {
         return false;
     }

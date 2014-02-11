@@ -85,6 +85,7 @@ class MySQL implements ConnectionInterface
             queue_fresh_until BIGINT NOT NULL DEFAULT 0,
             queue_tags VARCHAR(250) NOT NULL DEFAULT "",
             queue_priority INT(11) NOT NULL DEFAULT 0,
+            queue_start BIGINT NOT NULL DEFAULT 0,
             date_set BIGINT NOT NULL DEFAULT 0,
             is_temp TINYINT(1) NOT NULL DEFAULT 0,
             task VARCHAR(250),
@@ -196,34 +197,39 @@ class MySQL implements ConnectionInterface
 
     public function getJob($workerId)
     {
-        $this->db->beginTransaction();
-        $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = 1 ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
-        $stmt->execute();
-        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        if (empty($result)) {
+        try {
+            $this->db->beginTransaction();
+            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = 1 AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
+            $stmt->execute(array(time()));
+            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if (empty($result)) {
+                $this->db->commit();
+                return false;
+            }
+            $stmt = $this->stmtUpdateJob ?: $this->stmtUpdateJob = $this->db->prepare('UPDATE '.$this->tableName.' SET queued = 0, queued_worker = ? WHERE id = ?');
+            $stmt->execute(array($workerId, $result['id']));
             $this->db->commit();
+
+            $return = array();
+
+            $return['key'] = $result['id'];
+            $return['fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
+            if ($this->useFulltextTags) {
+                $return['tags'] = !empty($result['queue_tags']) ? explode('##', mb_substr($result['queue_tags'], 2, mb_strlen($result['queue_tags']), 'UTF-8')) : array();
+            } else {
+                $return['tags'] = !empty($result['queue_tags']) ? explode(' ', $result['queue_tags']) : array();
+            }
+            $return['task'] = !empty($result['task']) ? $result['task'] : null;
+            $return['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
+            $return['data'] = isset($result['data']) ? unserialize($result['data']) : null;
+            $return['temp'] = !empty($result['is_temp']);
+            $return['worker_id'] = $workerId;
+
+            return $return;
+        } catch (\PDOException $e) {
+            $this->db->rollBack();
             return false;
         }
-        $stmt = $this->stmtUpdateJob ?: $this->stmtUpdateJob = $this->db->prepare('UPDATE '.$this->tableName.' SET queued = 0, queued_worker = ? WHERE id = ?');
-        $stmt->execute(array($workerId, $result['id']));
-        $this->db->commit();
-        
-        $return = array();
-        
-        $return['key'] = $result['id'];
-        $return['fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
-        if ($this->useFulltextTags) {
-            $return['tags'] = !empty($result['queue_tags']) ? explode('##', mb_substr($result['queue_tags'], 2, mb_strlen($result['queue_tags']), 'UTF-8')) : array();
-        } else {
-            $return['tags'] = !empty($result['queue_tags']) ? explode(' ', $result['queue_tags']) : array();
-        }
-        $return['task'] = !empty($result['task']) ? $result['task'] : null;
-        $return['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
-        $return['data'] = isset($result['data']) ? unserialize($result['data']) : null;
-        $return['temp'] = !empty($result['is_temp']);
-        $return['worker_id'] = $workerId;
-        
-        return $return;
     }
     
     public function updateJobStatus($key, $workerId)
@@ -282,7 +288,7 @@ class MySQL implements ConnectionInterface
         }
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
     {
         if ($key === true) {
             $key = 'temp_'.md5(microtime(true).rand(10000,99999));
@@ -293,7 +299,8 @@ class MySQL implements ConnectionInterface
             $temp = false;
         }
         
-        $freshUntil = time() + $freshFor;
+        $freshUntil = time() + $freshFor + $delay;
+        $queueStart = time() + $delay;
         
         $tags = array_values((array) $tags);
         if ($this->useFulltextTags) {
@@ -317,14 +324,15 @@ class MySQL implements ConnectionInterface
                     params = ?,
                     queue_priority = ?,
                     queue_tags = ?,
+                    queue_start = ?
                     is_temp = ?
                     ');
-                $stmt->execute(array($key, $freshUntil, $task, serialize($params), $priority, $tags, $temp ? 1 : 0));
+                $stmt->execute(array($key, $freshUntil, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart));
                 $this->db->commit();
                 return true;
             }
             
-            if ($force || ($result['fresh_until'] < time() && $result['queue_fresh_until'] < time())) {
+            if ($force || ($result['fresh_until'] < $queueStart && $result['queue_fresh_until'] < $queueStart)) {
                 $stmt = $this->stmtQueueUpdate ?: $this->stmtQueueUpdate = $this->db->prepare('UPDATE '.$this->tableName.' SET
                     queue_fresh_until = ?,
                     queued = 1,
@@ -333,10 +341,11 @@ class MySQL implements ConnectionInterface
                     params = ?,
                     queue_priority = ?,
                     queue_tags = ?,
+                    queue_start = ?,
                     is_temp = ?
                     WHERE id = ?
                     ');
-                $stmt->execute(array($key, $freshUntil, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $key));
+                $stmt->execute(array($key, $freshUntil, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart, $key));
                 $this->db->commit();
                 return true;
             } else {
