@@ -21,7 +21,7 @@ class Graylog implements LoggerInterface
         $this->logLevel = !empty($config['logLevel']) ? $config['logLevel'] : self::LOG_NONE;
     }
     
-    public function logException($e)
+    public function logException(\Exception $e)
     {
         if ($this->logLevel & self::LOG_ERROR) {
             $this->doLog($e->getMessage(), 3, $e);
@@ -56,7 +56,7 @@ class Graylog implements LoggerInterface
         $this->publisher->addTransport($transport);
     }
     
-    private function doLog($message, $level, $exception = null)
+    private function doLog($message, $level, \Exception $exception = null)
     {
         if (empty($this->publisher)) {
             $this->initClient();
@@ -74,6 +74,8 @@ class Graylog implements LoggerInterface
         $gelfMessage->setLevel($level);
         $gelfMessage->setFacility($this->facility);
         if ($exception) {
+            $gelfMessage->setFile($exception->getFile());
+            $gelfMessage->setLine($exception->getLine());
             $longText = "";
             do {
                 $longText .= sprintf(
@@ -87,8 +89,6 @@ class Graylog implements LoggerInterface
                 $exception = $exception->getPrevious();
             } while ($exception && $longText .= "\n--\n\n");
             $gelfMessage->setFullMessage($longText);
-            $gelfMessage->setFile($exception->getFile());
-            $gelfMessage->setLine($exception->getLine());
         }
         
         $this->publisher->publish($gelfMessage);

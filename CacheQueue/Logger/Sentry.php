@@ -34,7 +34,7 @@ class Sentry implements LoggerInterface
         }
     }
 
-    public function logException($e)
+    public function logException(\Exception $e)
     {
         if ($this->logLevel & self::LOG_ERROR) {
             $this->doLogException($e, \Raven_Client::ERROR);
@@ -89,7 +89,7 @@ class Sentry implements LoggerInterface
         $this->ravenClient->captureMessage(($this->showPid ? 'PID '.getmypid().' | ' : '').$message, array(), $level);
     }
     
-    private function doLogException($e, $level)
+    private function doLogException(\Exception $e, $level)
     {
         if (empty($this->ravenClient)) {
             $this->initClient();
