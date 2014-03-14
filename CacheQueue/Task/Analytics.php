@@ -64,7 +64,7 @@ class Analytics
         $dateTo = !empty($params['dateTo']) ? $params['dateTo'] : date('Y-m-d');
 
         $analyticsBlockKey = '_analytics_block_' . $params['profileId'] . '_' . $config['clientKey'];
-        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey)) {
+        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey, true)) {
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
 
@@ -314,7 +314,7 @@ class Analytics
         }
 
         $analyticsBlockKey = '_analytics_block_' . $params['profileId'] . '_' . $config['clientKey'];
-        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey)) {
+        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey, true)) {
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
         
@@ -401,7 +401,7 @@ class Analytics
         }
 
         $analyticsBlockKey = '_analytics_block_' . $params['profileId'] . '_' . $config['clientKey'];
-        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey)) {
+        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey, true)) {
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
 
@@ -500,7 +500,7 @@ class Analytics
         }
 
         $analyticsBlockKey = '_analytics_block_' . $params['profileId'] . '_' . $config['clientKey'];
-        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey)) {
+        if ($blockReason = $worker->getConnection()->getValue($analyticsBlockKey, true)) {
             throw new Exception('Google Analytics Request was blocked:' . $blockReason);
         }
 
