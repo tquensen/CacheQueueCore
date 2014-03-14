@@ -29,7 +29,7 @@ class Social
         $rawData = @file_get_contents('https://api.facebook.com/method/fql.query?format=json&query=select%20total_count%20from%20link_stat%20where%20url%20=%20%22' . $params . '%22', 0, $context);
 
         $facebookData = @json_decode($rawData);
-        if ($facebookData && isset($facebookData[0]) && isset($facebookData[0]->total_count)) {
+        if ($facebookData && is_array($facebookData) && isset($facebookData[0]) && isset($facebookData[0]->total_count)) {
             return (int) $facebookData[0]->total_count;
         }
         return null;
