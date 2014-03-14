@@ -135,7 +135,7 @@ class Analytics
                                                     }
                                                     usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
                                                 } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
-                                                    $worker->getConnection()->set($analyticsBlockKey, print_r($e, true), time() + 60, true);
+                                                    $worker->getConnection()->set($analyticsBlockKey, print_r($e, true), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
                                                     throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                                                 } else {
                                                     throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
@@ -263,7 +263,7 @@ class Analytics
                             }
                             usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
                         } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
-                            $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), time() + 60, true);
+                            $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
                             throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                         } else {
                             throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
@@ -343,7 +343,7 @@ class Analytics
                         }
                         usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
                     } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
-                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), time() + 60, true);
+                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                     } else {
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
@@ -434,7 +434,7 @@ class Analytics
                         }
                         usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
                     } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
-                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), time() + 60, true);
+                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                     } else {
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
@@ -533,7 +533,7 @@ class Analytics
                         }
                         usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
                     } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
-                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), time() + 60, true);
+                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                     } else {
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
