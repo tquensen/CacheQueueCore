@@ -77,9 +77,9 @@ class Basic implements WorkerInterface
         return $result;
     }
 
-    public function getJob()
+    public function getJob($channel = 1)
     {
-        return $this->connection->getJob($this->workerId);
+        return $this->connection->getJob($this->workerId, $channel);
     }
     
     public function getWorkerId()

@@ -26,7 +26,7 @@ class Mongo implements ConnectionInterface
     
     public function setup()
     {
-        $this->collection->ensureIndex(array('queued' => 1, 'queue_start' => 1, 'queue_priority' => 1), array('w' => $this->w));
+        $this->collection->ensureIndex(array('queued' => -1, 'queue_start' => 1, 'queue_priority' => 1), array('w' => $this->w));
 
         $this->collection->ensureIndex(array('fresh_until' => 1, 'tags' => 1), array('w' => $this->w));
 
@@ -85,7 +85,7 @@ class Mongo implements ConnectionInterface
             $entry['fresh_until'] = !empty($result['fresh_until']) ? $result['fresh_until']->sec : 0;
             $entry['is_fresh'] = $entry['fresh_until'] > time();
 
-            $return['date_set'] = !empty($result['date_set']) ? $result['date_set']->sec : 0;
+            $entry['date_set'] = !empty($result['date_set']) ? $result['date_set']->sec : 0;
             
             $entry['queue_fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until']->sec : 0;
             $entry['queue_is_fresh'] = (!empty($result['queue_fresh_until']) && $result['queue_fresh_until']->sec > time());
@@ -110,13 +110,13 @@ class Mongo implements ConnectionInterface
         return (!$onlyFresh || $result['is_fresh']) ? $result['data'] : false;
     }
 
-    public function getJob($workerId)
+    public function getJob($workerId, $channel = 1)
     {
         $result = $this->db->command(array(
             'findAndModify' => $this->collectionName,
-            'query' => array('queued' => true, 'queue_start' => array('$lte' => new \MongoDate())),
+            'query' => array('queued' => $channel, 'queue_start' => array('$lte' => new \MongoDate())),
             'sort' => array('queue_priority' => 1),
-            'update' => array('$set' => array('queued' => $workerId))
+            'update' => array('$set' => array('queued' => null, 'queued_worker' => $workerId))
         ));
         
         if (empty($result['ok']) || empty($result['value'])) {
@@ -143,11 +143,11 @@ class Mongo implements ConnectionInterface
             return (bool) $this->collection->update(
                     array(
                         '_id' => $key,
-                        'queued' => $workerId
+                        'queued_worker' => $workerId
                     ),
                     array('$set' => array(
                         'queue_fresh_until' => new \MongoDate(0),
-                        'queued' => false
+                        'queued_worker' => null
                     )),
                     array('w' => $this->w)
                 );
@@ -205,7 +205,7 @@ class Mongo implements ConnectionInterface
         
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
     {
         if ($key === true) {
             $key = 'temp_'.md5(microtime(true).rand(10000,99999));
@@ -230,7 +230,8 @@ class Mongo implements ConnectionInterface
                     array('$set' => array(
                         'queue_fresh_until' => $freshUntil,
                         'queue_tags' => $tags,
-                        'queued' => true,
+                        'queued' => $channel,
+                        'queued_worker' => null,
                         'task' => $task,
                         'params' => $params,
                         'temp' => $temp,
@@ -251,7 +252,8 @@ class Mongo implements ConnectionInterface
                     array('$set' => array(
                         'queue_fresh_until' => $freshUntil,
                         'queue_tags' => $tags,
-                        'queued' => true,
+                        'queued' => $channel,
+                        'queued_worker' => null,
                         'task' => $task,
                         'params' => $params,
                         'temp' => $temp,
@@ -269,9 +271,9 @@ class Mongo implements ConnectionInterface
         }
     }
 
-    public function getQueueCount()
+    public function getQueueCount($channel = true)
     {
-        return $this->collection->count(array('queued' => true));
+        return $channel === true ?  $this->collection->count(array('queued' => array('$gt' => 0))) : $this->collection->count(array('queued' => $channel));
     }
     
     public function countAll($fresh = null)
@@ -452,11 +454,11 @@ class Mongo implements ConnectionInterface
         }
     }
     
-    public function clearQueue()
+    public function clearQueue($channel = true)
     {
         return (bool) $this->collection->update(
             array(
-                'queued' => true
+                'queued' => $channel === true ? $channel : array('$gt' => 0)
             ),
             array('$set' => array(
                 'queue_fresh_until' => new \MongoDate(time() - 1),

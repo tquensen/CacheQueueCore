@@ -103,6 +103,7 @@ class Analytics
                             }
 
                             $numRequests = 0;
+                            $sampledDataInfo = array();
 
                             do {
                                 if ($actualDateTo > $dateTo) {
@@ -148,6 +149,9 @@ class Analytics
                                         }
                                     };
                                     $bulkCacheTmp = array_merge($bulkCacheTmp, $data['rows']);
+                                    if (!empty($data['containsSampledData'])) {
+                                        $sampledDataInfo[] = $data['sampleSize'].'/'.$data['sampleSpace'].' = '.number_format($data['sampleSize'] / $data['sampleSpace'] * 100, 2, ',','.').'%) for '.$actualDateFrom.' - '.$actualDateTo . ', Start Index '.$startIndex;
+                                    }
                                 } while ($startIndex - 1 + count($data['rows']) < $data['totalResults'] && $startIndex+=10000);
 
                                 if ($splitDays) {
@@ -168,7 +172,12 @@ class Analytics
                             $worker->getConnection()->releaseLock($bulkCacheKey, $lockKey);
                             if ($logger = $worker->getLogger()) {
                                 $bulkCacheEnd = microtime(true);
-                                $logger->logDebug('Analytics getMetric (' . $metric . '): created BulkCache with ' . count($bulkCache) . ' entries for ' . $params['profileId'] . '_' . $dateFrom . '_' . $dateTo . '_' . $hostStr . ' / took ' . (number_format($bulkCacheEnd - $bulkCacheStart, 2, ',', '.')) . 's and ' . $numRequests . ' requests');
+                                if (count($sampledDataInfo)) {
+                                    $sampleDataInfo = "\nContains Sampled Data:\n".implode("\n", $sampledDataInfo);
+                                } else {
+                                    $sampleDataInfo = '';
+                                }
+                                $logger->logDebug('Analytics getMetric (' . $metric . '): created BulkCache with ' . count($bulkCache) . ' entries for ' . $params['profileId'] . '_' . $dateFrom . '_' . $dateTo . '_' . $bulkCacheFilters . ' / took ' . (number_format($bulkCacheEnd - $bulkCacheStart, 2, ',', '.')) . 's and ' . $numRequests . ' requests'.$sampleDataInfo);
                             }
                         } catch (\Exception $e) {
                             $worker->getConnection()->releaseLock($bulkCacheKey, $lockKey);
@@ -280,7 +289,12 @@ class Analytics
             $count = $data['totalsForAllResults']['ga:' . $metric];
 
             if ($logger = $worker->getLogger()) {
-                $logger->logDebug('Analytics getMetric (' . $metric . '): ' . (!empty($params['hostname']) ? 'Host=' . $params['hostname'] . ' | ' : '') . 'Path=' . $path . ' | COUNT=' . $count);
+                if (!empty($data['containsSampledData'])) {
+                    $sampleDataInfo = "\n".'(Sampled Data: '.$data['sampleSize'].'/'.$data['sampleSpace'].' = '.number_format($data['sampleSize'] / $data['sampleSpace'] * 100, 2, ',','.').'%)';
+                } else {
+                    $sampleDataInfo = '';
+                }
+                $logger->logDebug('Analytics getMetric (' . $metric . '): ' . (!empty($params['hostname']) ? 'Host=' . $params['hostname'] . ' | ' : '') . 'Path=' . $path . ' | COUNT=' . $count . $sampleDataInfo);
             }
         }
 

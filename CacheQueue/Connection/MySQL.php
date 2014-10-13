@@ -56,6 +56,10 @@ class MySQL implements ConnectionInterface
     /**
      * @var \PDOStatement
      */
+    private $stmtQueueCountAll = null;
+    /**
+     * @var \PDOStatement
+     */
     private $stmtReleaseLock = null;
     
     private $useFulltextTags = null;
@@ -125,9 +129,9 @@ class MySQL implements ConnectionInterface
         $return['queue_fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
         $return['queue_is_fresh'] = $return['queue_fresh_until'] > time();
         if ($this->useFulltextTags) {
-            $return['tags'] = !empty($result['tags']) ? explode('##', mb_substr($result['tags'], 2, mb_strlen($result['tags']), 'UTF-8')) : array();
-        } else {
             $return['tags'] = !empty($result['tags']) ? explode(' ', $result['tags']) : array();
+        } else {
+            $return['tags'] = !empty($result['tags']) ? explode('##', mb_substr($result['tags'], 2, mb_strlen($result['tags']), 'UTF-8')) : array();
         }
         $return['task'] = !empty($result['task']) ? $result['task'] : null;
         $return['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
@@ -195,12 +199,12 @@ class MySQL implements ConnectionInterface
         return (!$onlyFresh || $result['is_fresh']) ? $result['data'] : false;
     }
 
-    public function getJob($workerId)
+    public function getJob($workerId, $channel = 1)
     {
         try {
             $this->db->beginTransaction();
-            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = 1 AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
-            $stmt->execute(array(time()));
+            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = ? AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
+            $stmt->execute(array($channel, time()));
             $result = $stmt->fetch(\PDO::FETCH_ASSOC);
             if (empty($result)) {
                 $this->db->commit();
@@ -215,9 +219,9 @@ class MySQL implements ConnectionInterface
             $return['key'] = $result['id'];
             $return['fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
             if ($this->useFulltextTags) {
-                $return['tags'] = !empty($result['queue_tags']) ? explode('##', mb_substr($result['queue_tags'], 2, mb_strlen($result['queue_tags']), 'UTF-8')) : array();
-            } else {
                 $return['tags'] = !empty($result['queue_tags']) ? explode(' ', $result['queue_tags']) : array();
+            } else {
+                $return['tags'] = !empty($result['queue_tags']) ? explode('##', mb_substr($result['queue_tags'], 2, mb_strlen($result['queue_tags']), 'UTF-8')) : array();
             }
             $return['task'] = !empty($result['task']) ? $result['task'] : null;
             $return['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
@@ -234,7 +238,7 @@ class MySQL implements ConnectionInterface
     
     public function updateJobStatus($key, $workerId)
     {
-        $stmt = $this->stmtUpdateJobStatus ?: $this->stmtUpdateJobStatus = $this->db->prepare('UPDATE '.$this->tableName.' SET queued_worker = null, queue_fresh_until = 0, WHERE queued_worker = ? AND id = ?');
+        $stmt = $this->stmtUpdateJobStatus ?: $this->stmtUpdateJobStatus = $this->db->prepare('UPDATE '.$this->tableName.' SET queued_worker = null, queue_fresh_until = 0 WHERE queued_worker = ? AND id = ?');
         return $stmt->execute(array($workerId, $key));
     }
     
@@ -288,7 +292,7 @@ class MySQL implements ConnectionInterface
         }
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
     {
         if ($key === true) {
             $key = 'temp_'.md5(microtime(true).rand(10000,99999));
@@ -318,7 +322,7 @@ class MySQL implements ConnectionInterface
                 $stmt = $this->stmtQueueInsert ?: $this->stmtQueueInsert = $this->db->prepare('INSERT INTO '.$this->tableName.' SET
                     id = ?,
                     queue_fresh_until = ?,
-                    queued = 1,
+                    queued = ?,
                     queued_worker = null,
                     task = ?,
                     params = ?,
@@ -327,7 +331,7 @@ class MySQL implements ConnectionInterface
                     queue_start = ?
                     is_temp = ?
                     ');
-                $stmt->execute(array($key, $freshUntil, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart));
+                $stmt->execute(array($key, $freshUntil, $channel, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart));
                 $this->db->commit();
                 return true;
             }
@@ -335,7 +339,7 @@ class MySQL implements ConnectionInterface
             if ($force || ($result['fresh_until'] < $queueStart && $result['queue_fresh_until'] < $queueStart)) {
                 $stmt = $this->stmtQueueUpdate ?: $this->stmtQueueUpdate = $this->db->prepare('UPDATE '.$this->tableName.' SET
                     queue_fresh_until = ?,
-                    queued = 1,
+                    queued = ?,
                     queued_worker = null,
                     task = ?,
                     params = ?,
@@ -345,7 +349,7 @@ class MySQL implements ConnectionInterface
                     is_temp = ?
                     WHERE id = ?
                     ');
-                $stmt->execute(array($key, $freshUntil, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart, $key));
+                $stmt->execute(array($key, $freshUntil, $channel, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart, $key));
                 $this->db->commit();
                 return true;
             } else {
@@ -359,10 +363,15 @@ class MySQL implements ConnectionInterface
 
     }
 
-    public function getQueueCount()
+    public function getQueueCount($channel = true)
     {
-        $stmt = $this->stmtQueueCount ?: $this->stmtQueueCount = $this->db->prepare('SELECT COUNT(*) FROM '.$this->tableName.' WHERE queued = 1');
-        $stmt->execute();
+        if ($channel == true) {
+            $stmt = $this->stmtQueueCountAll ?: $this->stmtQueueCountAll = $this->db->prepare('SELECT COUNT(*) FROM '.$this->tableName.' WHERE queued != 0');
+            $stmt->execute();
+        } else {
+            $stmt = $this->stmtQueueCount ?: $this->stmtQueueCount = $this->db->prepare('SELECT COUNT(*) FROM '.$this->tableName.' WHERE queued = ?');
+            $stmt->execute(array($channel));
+        }
         return $stmt->fetchColumn();
     }
     

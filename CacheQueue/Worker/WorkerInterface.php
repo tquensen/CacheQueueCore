@@ -33,10 +33,12 @@ interface WorkerInterface
     
     /**
      * gets a queued entry and removes it from queue
+     *
+     * @param int $channel the queue channel, default = 1
      * 
      * @return array|bool the job data or false if no job was found 
      */
-    public function getJob();
+    public function getJob($channel = 1);
     
     /**
      * gets the worker id

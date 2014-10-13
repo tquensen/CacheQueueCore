@@ -54,17 +54,20 @@ interface ConnectionInterface
      * @param array|string $tags one or multiple tags to assign to the cache entry
      * @param int $priority the execution priority of the queued job, 0=high prio/early execution, 100=low prio/late execution
      * @param int $delay number of seconds to wait before the task should run (actual delay may be greater if workers are too busy)
+     * @param int $channel the queue channel, default = 1
      * @return bool if the queue was sucessful 
      */
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0);
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1);
     
     /**
      * gets a queued entry and removes it from queue
      * 
      * @param int $workerId a unique id of the current worker
+     * @param int $channel the queue channel, default = 1
+     *
      * @return array|bool the job data or false if no job was found 
      */
-    public function getJob($workerId);
+    public function getJob($workerId, $channel = 1);
     
     /**
      * resets the queue_* data
@@ -74,6 +77,8 @@ interface ConnectionInterface
             
     /**
      * returns the number of queued cache entries
+     *
+     * @param int|true $channel the queue channel or true to return count for all channels
      * 
      * @return int the number of entries in the queue
      */
