@@ -250,47 +250,74 @@ class Analytics
         } else {
             $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
 
-            $tries = 3;
-            while (true) {
-                try {
-                    $parameter = array(
-                        'dimensions' => 'ga:pagePath',
-                        'sort' => '-ga:' . $metric,
-                        'max-results' => 1
-                    );
-                    if ($hostStr || $pathStr) {
-                        $parameter['filters'] = $hostStr . $pathStr;
-                    }
-                    $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, 'ga:' . $metric, $parameter);
-                    break;
-                } catch (\Google_Service_Exception $e) {
-                    $requestErrors = $e->getErrors();
-                    if ($e->getCode() == 403 && isset($requestErrors[0]['reason'])) {
-                        if ($requestErrors[0]['reason'] == 'quotaExceeded' || $requestErrors[0]['reason'] == 'userRateLimitExceeded') {
-                            if (!--$tries) {
+            if (!empty($params['splitDays'])) {
+                $splitDays = (int) $params['splitDays'];
+                $actualDateFrom = $dateFrom;
+                $actualDateTo = date('Y-m-d', strtotime($actualDateFrom) + (86400 * ($splitDays - 1)));
+            } else {
+                $splitDays = false;
+                $actualDateFrom = $dateFrom;
+                $actualDateTo = $dateTo;
+            }
+
+            $count = 0;
+            $sampledDataInfo = array();
+
+            do {
+                if ($actualDateTo > $dateTo) {
+                    $actualDateTo = $dateTo;
+                }
+
+                $tries = 3;
+                while (true) {
+                    try {
+                        $parameter = array(
+                            'dimensions' => 'ga:pagePath',
+                            'sort' => '-ga:' . $metric,
+                            'max-results' => 1
+                        );
+                        if ($hostStr || $pathStr) {
+                            $parameter['filters'] = $hostStr . $pathStr;
+                        }
+                        $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, 'ga:' . $metric, $parameter);
+                        break;
+                    } catch (\Google_Service_Exception $e) {
+                        $requestErrors = $e->getErrors();
+                        if ($e->getCode() == 403 && isset($requestErrors[0]['reason'])) {
+                            if ($requestErrors[0]['reason'] == 'quotaExceeded' || $requestErrors[0]['reason'] == 'userRateLimitExceeded') {
+                                if (!--$tries) {
+                                    throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                                }
+                                usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
+                            } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
+                                $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
+                                throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                            } else {
                                 throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                             }
-                            usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
-                        } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
-                            $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
-                            throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                         } else {
                             throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                         }
-                    } else {
+                    } catch (\Exception $e) {
                         throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
                     }
-                } catch (\Exception $e) {
-                    throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                };
+
+                if ($splitDays) {
+                    $actualDateFrom = date('Y-m-d', strtotime($actualDateTo) + (86400));
+                    $actualDateTo = date('Y-m-d', strtotime($actualDateFrom) + (86400 * ($splitDays - 1)));
                 }
-            };
+                if (!empty($data['containsSampledData'])) {
+                    $sampledDataInfo[] = $data['sampleSize'].'/'.$data['sampleSpace'].' = '.number_format($data['sampleSize'] / $data['sampleSpace'] * 100, 2, ',','.').'%) for '.$actualDateFrom.' - '.$actualDateTo;
+                }
 
+                $count += (int) $data['totalsForAllResults']['ga:' . $metric];
 
-            $count = $data['totalsForAllResults']['ga:' . $metric];
+            } while ($splitDays && $actualDateFrom <= $dateTo);
 
             if ($logger = $worker->getLogger()) {
-                if (!empty($data['containsSampledData'])) {
-                    $sampleDataInfo = "\n".'(Sampled Data: '.$data['sampleSize'].'/'.$data['sampleSpace'].' = '.number_format($data['sampleSize'] / $data['sampleSpace'] * 100, 2, ',','.').'%)';
+                if (count($sampledDataInfo)) {
+                    $sampleDataInfo = "\nContains Sampled Data:\n".implode("\n", $sampledDataInfo);
                 } else {
                     $sampleDataInfo = '';
                 }
@@ -588,6 +615,101 @@ class Analytics
 
 
         return $topKeywords;
+    }
+
+    public function customRequest($params, $config, $job, $worker)
+    {
+        $metrics = !empty($params['metrics']) ? $params['metrics'] : false;
+
+        if (empty($config['clientKey']) || empty($config['clientSecret'])) {
+            throw new \Exception('Config parameters clientKey and clientSecret are required!');
+        }
+
+        if (!$metrics || empty($params['profileId']) || empty($params['refreshToken'])) {
+            throw new \Exception('parameters metric, profileId and refreshToken are required!');
+        }
+
+        if (empty($config['applicationName'])) {
+            $config['applicationName'] = 'unknown';
+        }
+
+        $googleConfigIniLocation = !empty($config['googleConfigIniLocation']) ? $config['googleConfigIniLocation'] : null;
+
+        $parameter = array();
+
+        if (!empty($params['sort'])) {
+            $parameter['sort'] = $params['sort'];
+        }
+        if (!empty($params['maxResults'])) {
+            $parameter['max-results'] = $params['maxResults'];
+        }
+        if (!empty($params['startIndex'])) {
+            $parameter['start-index'] = $params['startIndex'];
+        }
+        if (!empty($params['dimensions'])) {
+            $parameter['dimensions'] = $params['dimensions'];
+        }
+        if (!empty($params['filters'])) {
+            $parameter['filters'] = $params['filters'];
+        }
+        if (!empty($params['segment'])) {
+            $parameter['segment'] = $params['segment'];
+        }
+        if (!empty($params['samplingLevel'])) {
+            $parameter['samplingLevel'] = $params['samplingLevel'];
+        }
+
+        $dateFrom = !empty($params['dateFrom']) ? $params['dateFrom'] : '2005-01-01';
+        $dateTo = !empty($params['dateTo']) ? $params['dateTo'] : date('Y-m-d');
+
+        $service = $this->initClient($config['applicationName'], $config['clientKey'], $config['clientSecret'], $params['refreshToken'], $worker->getConnection(), $worker->getLogger(), $googleConfigIniLocation);
+
+        $analyticsBlockKey = '_analytics_block_' . $params['profileId'] . '_' . $config['clientKey'];
+
+        $tries = 3;
+        while (true) {
+            try {
+                $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, $metrics, $parameter);
+                break;
+            } catch (\Google_Service_Exception $e) {
+                $requestErrors = $e->getErrors();
+                if ($e->getCode() == 403 && isset($requestErrors[0]['reason'])) {
+                    if ($requestErrors[0]['reason'] == 'quotaExceeded' || $requestErrors[0]['reason'] == 'userRateLimitExceeded') {
+                        if (!--$tries) {
+                            throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                        }
+                        usleep(rand(300000, 500000) + pow(2, 2 - $tries) * 1000000);
+                    } elseif ($requestErrors[0]['reason'] == 'dailyLimitExceeded') {
+                        $worker->getConnection()->set($analyticsBlockKey, $e->getMessage(), 600, true, array('anayltics_block', 'analytics_block_'.$params['profileId']));
+                        throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                    } else {
+                        throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                    }
+                } else {
+                    throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+                }
+            } catch (\Exception $e) {
+                throw new Exception('Api-Error:' . $e->getMessage(), $e->getCode(), $e);
+            }
+        };
+
+        $return = array(
+            'totalResults' => $data['totalResults'],
+            'totalsForAllResults' => $data['totalsForAllResults'],
+            'containsSampledData' => $data['containsSampledData'],
+        );
+
+        $results = array();
+        foreach ($data['rows'] as $k => $row) {
+            $results[$k] = array();
+            foreach ($data['columnHeaders'] as $ck => $header) {
+                $results[$k][$header['name']] = $row[$ck];
+            }
+        }
+
+        $return['results'] = $results;
+
+        return $results;
     }
 
     private function getToken($refresh_token, $client, $connection, $logger)

@@ -48,9 +48,10 @@ interface ClientInterface
      * @param array|string $tags one or multiple tags to assign to the cache entry
      * @param int $priority the execution priority of the queued job, 0=high prio/early execution, 100=low prio/late execution
      * @param int $delay number of seconds to wait before the task should run (actual delay may be greater if workers are too busy)
+     * @param int $channel the queue channel, default = 1
      * @return bool if the queue was sucessful 
      */
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0);
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1);
     
     /**
      * add a temporary queue entry which gets deleted after the job was executed
@@ -62,9 +63,10 @@ interface ClientInterface
      * @param mixed $params parameters for the task
      * @param int $priority the execution priority of the queued job, 0=high prio/early execution, 100=low prio/late execution
      * @param int $delay number of seconds to wait before the task should run (actual delay may be greater if workers are too busy)
+     * @param int $channel the queue channel, default = 1
      * @return bool if the queue was sucessful 
      */
-    public function queueTemporary($task, $params, $priority = 50, $delay = 0);
+    public function queueTemporary($task, $params, $priority = 50, $delay = 0, $channel = 1);
 
     /**
      * run a task and return the result
@@ -105,9 +107,10 @@ interface ClientInterface
      * @param array|string $tags one or multiple tags to assign to the cache entry
      * @param int $priority the execution priority of the queued job, 0=high prio/early execution, 100=low prio/late execution
      * @param int $delay number of seconds to wait before the task should run (actual delay may be greater if workers are too busy)
+     * @param int $channel the queue channel, default = 1
      * @return mixed the cached data or false if not found
      */
-    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0);
+    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1);
 
     /**
      * get the data for key from cache, run a task if its not fresh 

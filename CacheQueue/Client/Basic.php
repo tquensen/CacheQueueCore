@@ -33,17 +33,17 @@ class Basic implements ClientInterface
         return $this->connection->set($key, $data, $freshFor, $force, $tags);
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
     {
         if ($freshFor === true) {
             $freshFor = 315360000; // 10 years
         }
-        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay);
+        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay, $channel);
     }
     
-    public function queueTemporary($task, $params, $priority = 50, $delay = 0)
+    public function queueTemporary($task, $params, $priority = 50, $delay = 0, $channel = 1)
     {
-        return $this->connection->queue(true, $task, $params, true, true, array(), $priority, $delay);
+        return $this->connection->queue(true, $task, $params, true, true, array(), $priority, $delay, $channel);
     }
     
     public function run($task, $params)
@@ -103,14 +103,14 @@ class Basic implements ClientInterface
         return !isset($result['data']) ? false : $result['data'];
     }
 
-    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
+    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
     {
         if ($freshFor === true) {
             $freshFor = 315360000; // 10 years
         }
         $result = $this->connection->get($key);
         if (!$result || (!$result['is_fresh'] && !$result['queue_is_fresh']) || $force) {
-            $this->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay);
+            $this->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay, $channel);
         }
         return !isset($result['data']) ? false : $result['data'];
     }
