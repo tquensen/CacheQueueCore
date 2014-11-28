@@ -82,7 +82,7 @@ interface ConnectionInterface
      * 
      * @return int the number of entries in the queue
      */
-    public function getQueueCount();
+    public function getQueueCount($channel = true);
     
     /**
      * get the number of matching entries
@@ -153,10 +153,12 @@ interface ConnectionInterface
     
     /**
      * resets the queue status for all queued entries
+     *
+     * @param int|true $channel the queue channel or true to return count for all channels
      * 
      * @return bool if the request was successful 
      */
-    public function clearQueue();
+    public function clearQueue($channel = true);
     
     /**
      * removes all entries which are outdated for a specific time

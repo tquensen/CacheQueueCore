@@ -458,7 +458,7 @@ class Mongo implements ConnectionInterface
     {
         return (bool) $this->collection->update(
             array(
-                'queued' => $channel === true ? $channel : array('$gt' => 0)
+                'queued' => $channel !== true ? $channel : array('$gt' => 0)
             ),
             array('$set' => array(
                 'queue_fresh_until' => new \MongoDate(time() - 1),

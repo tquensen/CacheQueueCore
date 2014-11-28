@@ -528,15 +528,25 @@ class MySQL implements ConnectionInterface
         return $stmt->execute($values);
     }
     
-    public function clearQueue()
+    public function clearQueue($channel = true)
     {
-        $query = 'UPDATE '.$this->tableName.' SET
+        if ($channel !== true) {
+            $query = 'UPDATE '.$this->tableName.' SET
             queue_fresh_until = 0,
             queued = 0
-            WHERE queued = 1 ';
-        
-        $stmt = $this->db->prepare($query);
-        return $stmt->execute(array());
+            WHERE queued = ? ';
+
+            $stmt = $this->db->prepare($query);
+            return $stmt->execute(array($channel));
+        } else {
+            $query = 'UPDATE '.$this->tableName.' SET
+            queue_fresh_until = 0,
+            queued = 0
+            WHERE queued != 0';
+
+            $stmt = $this->db->prepare($query);
+            return $stmt->execute(array());
+        }
     }
     
     public function cleanup($outdatedFor = 0)
