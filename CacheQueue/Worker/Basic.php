@@ -2,7 +2,8 @@
 namespace CacheQueue\Worker;
 use CacheQueue\Connection\ConnectionInterface,
     CacheQueue\Logger\LoggerInterface,
-    CacheQueue\Exception\Exception;
+    CacheQueue\Exception\Exception,
+    CacheQueue\Exception\BuryException;
 
 class Basic implements WorkerInterface
 {
@@ -27,14 +28,12 @@ class Basic implements WorkerInterface
             throw new Exception('no job given.');
         }
         
+        $task = $job['task'];
+        $params = $job['params'];
+        $freshUntil = $job['fresh_until'];
+        $temp = !empty($job['temp']);
         
         try {
-            
-            $task = $job['task'];
-            $params = $job['params'];
-            $freshUntil = $job['fresh_until'];
-            $temp = !empty($job['temp']);
-
             if (empty($this->tasks[$task])) {
                 throw new Exception('invalid task '.$task.'.');
             }
@@ -45,10 +44,15 @@ class Basic implements WorkerInterface
                 $this->connection->remove($job['key'], true);
             } elseif ($result !== null) {
                 $this->connection->set($job['key'], $result, $freshUntil-time(), false, $job['tags']);
+                $this->connection->updateJobStatus($job['key'], $job['worker_id']);
+            } else {
+                $this->connection->refresh($job['key'], $freshUntil-time(), false);
+                $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             }
-            
-            $this->connection->updateJobStatus($job['key'], $job['worker_id']);
-        } catch (\Exception $e) {
+        } catch (BuryException $e) {
+            $this->connection->updateJobStatus($job['key'], $job['worker_id'], $e->getBuryTime() !== null ? $e->getBuryTime() : $freshUntil-time());
+            throw $e;
+        }catch (\Exception $e) {
             $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             throw $e;
         }
@@ -70,9 +74,9 @@ class Basic implements WorkerInterface
             throw new Exception('method '.$taskMethod.' in in class '.$taskClass.' not found.');
         }
 
-        $task = new $taskClass;     
-        $result = $task->$taskMethod($params, $taskConfig, $job, $this);
-        unset($task);
+        $taskObject = new $taskClass;
+        $result = $taskObject->$taskMethod($params, $taskConfig, $job, $this);
+        unset($taskObject);
         
         return $result;
     }

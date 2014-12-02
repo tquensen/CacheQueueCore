@@ -44,6 +44,15 @@ interface ConnectionInterface
     public function set($key, $data, $freshFor, $force = false, $tags = array());
 
     /**
+     * updated the freshFor value of an existing cache entry
+     *
+     * @param string $key the key to refresh the data for
+     * @param int $freshFor number of seconds that the data is fresh
+     * @param bool $force true to force the refresh even if the data is still fresh
+     */
+    public function refresh($key, $freshFor, $force = false);
+
+    /**
      * add a queue entry 
      * 
      * @param string $key the key to save the data for or true to store as temporary entry
@@ -71,9 +80,13 @@ interface ConnectionInterface
     
     /**
      * resets the queue_* data
+     *
+     * @param string $key the key to update the job status for
      * @param int $workerId a unique id of the current worker 
+     * @param int $newQueueFreshFor 0 to reset the jobData or a new freshUntil timestamp to bury the job until that date
+     *
      */
-    public function updateJobStatus($key, $workerId);
+    public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0);
             
     /**
      * returns the number of queued cache entries

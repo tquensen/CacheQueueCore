@@ -72,10 +72,10 @@ class APCProxy implements ConnectionInterface
         return $this->connection->getJob($workerId);
     }
     
-    public function updateJobStatus($key, $workerId)
+    public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)
     {
         if (apc_exists($this->prefix.$key)) apc_delete($this->prefix.$key);
-        return $this->connection->updateJobStatus($key, $workerId);
+        return $this->connection->updateJobStatus($key, $workerId, $newQueueFreshFor);
     }
     
     public function set($key, $data, $freshFor, $force = false, $tags = array())
@@ -84,15 +84,21 @@ class APCProxy implements ConnectionInterface
         return $this->connection->set($key, $data, $freshFor, $force, $tags);
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
+    public function refresh($key, $freshFor, $force = false)
     {
         if (apc_exists($this->prefix.$key)) apc_delete($this->prefix.$key);
-        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay);
+        return $this->connection->refresh($key, $freshFor, $force);
     }
 
-    public function getQueueCount()
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
     {
-        return $this->connection->getQueueCount();
+        if (apc_exists($this->prefix.$key)) apc_delete($this->prefix.$key);
+        return $this->connection->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay, $channel);
+    }
+
+    public function getQueueCount($channel = true)
+    {
+        return $this->connection->getQueueCount($channel);
     }
     
     public function countAll($fresh = null)
@@ -150,9 +156,9 @@ class APCProxy implements ConnectionInterface
         return $this->connection->outdateAll($force);
     }
     
-    public function clearQueue()
+    public function clearQueue($channel = true)
     {
-        return $this->connection->clearQueue();
+        return $this->connection->clearQueue($channel);
     }
 
     

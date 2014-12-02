@@ -40,6 +40,10 @@ class MySQL implements ConnectionInterface
     /**
      * @var \PDOStatement
      */
+    private $stmtRefresh = null;
+    /**
+     * @var \PDOStatement
+     */
     private $stmtQueueGet = null;
     /**
      * @var \PDOStatement
@@ -236,10 +240,10 @@ class MySQL implements ConnectionInterface
         }
     }
     
-    public function updateJobStatus($key, $workerId)
+    public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)
     {
-        $stmt = $this->stmtUpdateJobStatus ?: $this->stmtUpdateJobStatus = $this->db->prepare('UPDATE '.$this->tableName.' SET queued_worker = null, queue_fresh_until = 0 WHERE queued_worker = ? AND id = ?');
-        return $stmt->execute(array($workerId, $key));
+        $stmt = $this->stmtUpdateJobStatus ?: $this->stmtUpdateJobStatus = $this->db->prepare('UPDATE '.$this->tableName.' SET queued_worker = null, queue_fresh_until = ? WHERE queued_worker = ? AND id = ?');
+        return $stmt->execute(array($newQueueFreshFor > 0 ? $newQueueFreshFor + time() : 0, $workerId, $key));
     }
     
     public function set($key, $data, $freshFor, $force = false, $tags = array())
@@ -286,6 +290,38 @@ class MySQL implements ConnectionInterface
                 $this->db->commit();
                 return true;
             }   
+        } catch (\PDOException $e) {
+            $this->db->rollBack();
+            return false;
+        }
+    }
+
+    public function refresh($key, $freshFor, $force = false)
+    {
+        $freshUntil = time() + $freshFor;
+
+        try {
+            $this->db->beginTransaction();
+            $stmt = $this->stmtSetGet ?: $this->stmtSetGet = $this->db->prepare('SELECT id, fresh_until FROM '.$this->tableName.' WHERE id = ? LIMIT 1 FOR UPDATE');
+            $stmt->execute(array($key));
+            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+            if (empty($result)) {
+                return false;
+            }
+
+            if ($force || $result['fresh_until'] < time()) {
+                $stmt = $this->stmtRefresh ?: $this->stmtRefresh = $this->db->prepare('UPDATE '.$this->tableName.' SET
+                    fresh_until = ?,
+                    date_set = ?
+                    WHERE id = ?
+                    ');
+                $stmt->execute(array($freshUntil, time(), $key));
+                $this->db->commit();
+                return true;
+            } else {
+                $this->db->commit();
+                return true;
+            }
         } catch (\PDOException $e) {
             $this->db->rollBack();
             return false;

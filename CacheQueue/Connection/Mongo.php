@@ -137,7 +137,7 @@ class Mongo implements ConnectionInterface
         return $return;
     }
     
-    public function updateJobStatus($key, $workerId)
+    public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)
     {
         try {
             return (bool) $this->collection->update(
@@ -146,7 +146,7 @@ class Mongo implements ConnectionInterface
                         'queued_worker' => $workerId
                     ),
                     array('$set' => array(
-                        'queue_fresh_until' => new \MongoDate(0),
+                        'queue_fresh_until' => new \MongoDate($newQueueFreshFor > 0 ? $newQueueFreshFor + time() : 0),
                         'queued_worker' => null
                     )),
                     array('w' => $this->w)
@@ -204,6 +204,47 @@ class Mongo implements ConnectionInterface
         }
         
     }
+
+    public function refresh($key, $freshFor, $force = false)
+    {
+        $freshUntil = new \MongoDate(time() + $freshFor);
+
+        try {
+            if ($force) {
+                return (bool) $this->collection->update(
+                    array(
+                        '_id' => $key
+                    ),
+                    array('$set' => array(
+                        'fresh_until' => $freshUntil,
+                        'date_set' => new \MongoDate()
+                    )),
+                    array('w' => $this->w)
+                );
+            } else {
+                return (bool) $this->collection->update(
+                    array(
+                        '_id' => $key,
+                        '$nor' => array(
+                            array('fresh_until' => array('$gte' => new \MongoDate()))
+                        ),
+                    ),
+                    array('$set' => array(
+                        'fresh_until' => $freshUntil,
+                        'date_set' => new \MongoDate()
+                    )),
+                    array('w' => $this->w)
+                );
+            }
+        } catch (\MongoCursorException $e) {
+            if ($e->getCode() == 11000) {
+                return true;
+            }
+            throw $e;
+        }
+
+    }
+
 
     public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
     {

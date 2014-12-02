@@ -33,7 +33,7 @@ class Dummy implements ConnectionInterface
         return false;
     }
     
-    public function updateJobStatus($key, $workerId)
+    public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)
     {
         return false;
     }
@@ -43,12 +43,17 @@ class Dummy implements ConnectionInterface
         return false;
     }
 
-    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0)
+    public function refresh($key, $freshFor, $force = false)
     {
         return false;
     }
 
-    public function getQueueCount()
+    public function queue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
+    {
+        return false;
+    }
+
+    public function getQueueCount($channel = true)
     {
         return 0;
     }
@@ -94,7 +99,7 @@ class Dummy implements ConnectionInterface
         return false;
     }
     
-    public function clearQueue()
+    public function clearQueue($channel = true)
     {
         return false;
     }

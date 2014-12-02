@@ -4,12 +4,18 @@ namespace CacheQueue\Task;
 /**
  * the 'misc' class contains various simple tasks
  * 
- * if a task returns null/nothing, the data won't be updated.
+ * if a task returns null/nothing, the cache entry will get updated with the new
+ * fresh until date without updating the data
  * if you want do remove/clear the data, you should return false
  * 
  * throw a \CacheQueue\Exception\Exception for non-critical errors (this will be logged)
  * any other exceptions will terminate the (default) worker process 
- * in any case, when throwing an exception, the cache entry is removed from queue and wont get updated
+ * in any case, when throwing an exception, the cache entry is removed from queue and wont get updated,
+ * which means that it will get queued again on the next request
+ *
+ * throw a \CacheQueue\Exception\BuryException to bury the job for a given time,
+ * meaning the data wont get updated and no new job will get queued for that key
+ * for the given timespan
  */
 class Misc
 {
@@ -62,14 +68,13 @@ class Misc
                         $logger->logError('loadUrl: failed to convert data to XML for URL '.$params['url']);
                     }
                 } else {
-                    $return = $xml;
+                    $result = $xml;
                 }   
             } catch (\Exception $e) {
                 libxml_use_internal_errors($preverrors);
                 throw $e;
             }
             libxml_use_internal_errors($preverrors);
-            return $return;
         }
         
         if ($logger = $worker->getLogger()) {
