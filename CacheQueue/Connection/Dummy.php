@@ -28,7 +28,7 @@ class Dummy implements ConnectionInterface
         return false;
     }
 
-    public function getJob($workerId)
+    public function getJob($workerId, $channel = 1)
     {
         return false;
     }
