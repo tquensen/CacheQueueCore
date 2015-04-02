@@ -124,7 +124,7 @@ interface ConnectionInterface
     /**
      * removes all entries from cache
      * 
-     * @param bool $force if false (default), only fresh entries will be removed 
+     * @param bool $force if false (default), only outdated entries will be removed
      * @return bool if the request was successful 
      */
     public function removeAll($force = false);
@@ -133,7 +133,7 @@ interface ConnectionInterface
      * removes all entries with the given tag(s) from cache
      * 
      * @param array|string $tag multiple tags used to find the entries to remove
-     * @param bool $force if false (default), only fresh entries will be removed 
+     * @param bool $force if false (default), only outdated entries will be removed
      * @return bool if the request was successful 
      */
     public function removeByTag($tag, $force = false);

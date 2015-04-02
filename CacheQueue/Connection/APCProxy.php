@@ -67,9 +67,9 @@ class APCProxy implements ConnectionInterface
         return (!$onlyFresh || $result['is_fresh']) ? $result['data'] : false;
     }
 
-    public function getJob($workerId)
+    public function getJob($workerId, $channel = 1)
     {
-        return $this->connection->getJob($workerId);
+        return $this->connection->getJob($workerId, $channel);
     }
     
     public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)

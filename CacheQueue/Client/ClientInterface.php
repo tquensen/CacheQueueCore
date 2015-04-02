@@ -90,7 +90,7 @@ interface ClientInterface
      * @param int|bool $freshFor number of seconds that the data is fresh, true for far-future-expire (persistent)
      * @param bool $force true to force the save even if the data is still fresh
      * @param array|string $tags one or multiple tags to assign to the cache entry
-     * @param int|bool $lockFor locktime in seconds, ater that another lock can be obtained, if false, locks are ignored
+     * @param int|bool $lockFor locktime in seconds, after that another lock can be obtained, if false, locks are ignored
      * @param float|bool $lockTimeout time to wait (in seconds, eg 0.05 for 50ms) for another lock to be released, if false, the $lockFor value is used
      * @return mixed the cached or generated data
      */
@@ -139,7 +139,7 @@ interface ClientInterface
     /**
      * removes all entries from cache
      * 
-     * @param bool $force if false (default), only fresh entries will be removed 
+     * @param bool $force if false (default), only outdated entries will be removed
      * @return bool if the request was successful 
      */
     public function removeAll($force = false);
@@ -148,7 +148,7 @@ interface ClientInterface
      * removes all entries with the given tag(s) from cache
      * 
      * @param array|string $tag multiple tags used to find the entries to remove
-     * @param bool $force if false (default), only fresh entries will be removed 
+     * @param bool $force if false (default), only outdated entries will be removed
      * @return bool if the request was successful 
      */
     public function removeByTag($tag, $force = false);

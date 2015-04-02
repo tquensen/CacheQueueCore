@@ -46,6 +46,7 @@ class Basic implements WorkerInterface
                 $this->connection->set($job['key'], $result, $freshUntil-time(), false, $job['tags']);
                 $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             } else {
+                $result = isset($job['data']) ? $job['data'] : null;
                 $this->connection->refresh($job['key'], $freshUntil-time(), false);
                 $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             }
