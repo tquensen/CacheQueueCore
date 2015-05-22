@@ -78,6 +78,27 @@ class Social
         return 0;
     }
 
+    public function getXingShares($params, $config, $job, $worker)
+    {
+        // set timeout
+        $context = stream_context_create(array(
+            'http' => array(
+                'timeout' => 15,
+                'method' => 'POST',
+                'header' => 'Content-type: application/x-www-form-urlencoded',
+                'content' => http_build_query(array('url', $params))
+            )
+        )
+        );
+
+        // get count data from twitter
+        $rawData = @file_get_contents('https://www.xing-share.com/spi/shares/statistics', false, $context);
+
+        if ($xingData = @json_decode($rawData)) {
+            return (int) $xingData->share_counter;
+        }
+    }
+
     public function getTwitterTimeline($params, $config, $job, $worker)
     {
         if (empty($params['screen_name']) && empty($params['user_id'])) {
