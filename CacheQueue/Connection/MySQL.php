@@ -207,7 +207,7 @@ class MySQL implements ConnectionInterface
     {
         try {
             $this->db->beginTransaction();
-            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = ? AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
+            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queued, queue_priority, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = ? AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
             $stmt->execute(array($channel, time()));
             $result = $stmt->fetch(\PDO::FETCH_ASSOC);
             if (empty($result)) {
@@ -230,7 +230,10 @@ class MySQL implements ConnectionInterface
             $return['task'] = !empty($result['task']) ? $result['task'] : null;
             $return['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
             $return['data'] = isset($result['data']) ? unserialize($result['data']) : null;
+            $return['channel'] = isset($result['queued']) ? $result['queued'] : 0;
+            $return['priority'] = isset($result['queue_priority']) ? $result['queue_priority'] : 50;
             $return['temp'] = !empty($result['is_temp']);
+
             $return['worker_id'] = $workerId;
 
             return $return;

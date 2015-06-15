@@ -3,7 +3,8 @@ namespace CacheQueue\Worker;
 use CacheQueue\Connection\ConnectionInterface,
     CacheQueue\Logger\LoggerInterface,
     CacheQueue\Exception\Exception,
-    CacheQueue\Exception\BuryException;
+    CacheQueue\Exception\BuryException,
+    CacheQueue\Exception\RequeueException;
 
 class Basic implements WorkerInterface
 {
@@ -51,9 +52,27 @@ class Basic implements WorkerInterface
                 $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             }
         } catch (BuryException $e) {
-            $this->connection->updateJobStatus($job['key'], $job['worker_id'], $e->getBuryTime() !== null ? $e->getBuryTime() : $freshUntil-time());
+            $this->connection->updateJobStatus(
+                    $job['key'],
+                    $job['worker_id'],
+                    $e->getBuryTime() !== null ? $e->getBuryTime() : $freshUntil - time()
+            );
             throw $e;
-        }catch (\Exception $e) {
+        } catch (RequeueException $e) {
+            $this->connection->updateJobStatus($job['key'], $job['worker_id']);
+            $this->connection->queue(
+                    $temp ? true : $job['key'],
+                    $task,
+                    $params,
+                    $e->getFreshFor() !== null ? $e->getFreshFor() : $freshUntil - time(),
+                    false,
+                    $job['tags'],
+                    $job['priority'],
+                    $e->getDelay() !== null ? $e->getDelay() : $freshUntil - time(),
+                    $job['channel']
+            );
+            throw $e;
+        } catch (\Exception $e) {
             $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             throw $e;
         }

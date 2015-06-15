@@ -131,6 +131,8 @@ class Mongo implements ConnectionInterface
         $return['task'] = !empty($result['value']['task']) ? $result['value']['task'] : null;
         $return['params'] = !empty($result['value']['params']) ? $result['value']['params'] : null;
         $return['data'] = isset($result['value']['data']) ? $result['value']['data'] : null;
+        $return['channel'] = isset($result['value']['queued']) ? $result['value']['queued'] : 0;
+        $return['priority'] = isset($result['value']['queue_priority']) ? $result['value']['queue_priority'] : 50;
         $return['temp'] = !empty($result['value']['temp']);
         $return['worker_id'] = $workerId;
         

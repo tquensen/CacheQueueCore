@@ -15,7 +15,12 @@ namespace CacheQueue\Task;
  *
  * throw a \CacheQueue\Exception\BuryException to bury the job for a given time,
  * meaning the data wont get updated and no new job will get queued for that key
- * for the given timespan
+ * for the given buryTime (default = null will bury the job for the remaining queue_fresh_for time)
+ *
+ * throw a \CacheQueue\Exception\RequeueException to queue the job again with the same data (task, params, ...)
+ * that will be executed after the given delay (defaults to the remaining queue_fresh_for time)
+ * with a new freshFor time (in addition to the delay, defaults to the remaining queue_fresh_for time)
+ *
  */
 class Misc
 {
