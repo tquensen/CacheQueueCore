@@ -114,7 +114,7 @@ class Dummy implements ConnectionInterface
         return false;
     }
 
-    public function getByTag($key, $onlyFresh = false)
+    public function getByTag($tag, $onlyFresh = false)
     {
         return array();
     }

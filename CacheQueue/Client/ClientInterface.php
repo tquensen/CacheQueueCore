@@ -16,6 +16,15 @@ interface ClientInterface
      * @return mixed the value or false if not found 
      */
     public function get($key, $onlyFresh = false);
+
+    /**
+     * get cached entry values by tag
+     *
+     * @param string $tag the tag to get entries for
+     * @param bool $onlyFresh true to return only values of fresh entries, false (default) to return also outdated values
+     * @return array array of key => value pairs or an empty array if none was found
+     */
+    public function getByTag($tag, $onlyFresh = false);
     
     /**
      * get a cached entry
@@ -24,6 +33,15 @@ interface ClientInterface
      * @return mixed the result array or false if not found 
      */
     public function getEntry($key);
+
+    /**
+     * get cached entries by tag
+     *
+     * @param string $tag the tag to get entries for
+     * @param bool $onlyFresh true to return only fresh entries, false (default) to return also outdated entries
+     * @return array array of key => entry pairs or an empty array if none was found
+     */
+    public function getEntriesByTag($tag, $onlyFresh = false);
 
     /**
      * save cache data

@@ -20,7 +20,7 @@ interface ConnectionInterface
      * @param bool $onlyFresh true to return only fresh entries, false (default) to return also outdated entries
      * @return array an array of cache entries
      */
-    public function getByTag($key, $onlyFresh = false);
+    public function getByTag($tag, $onlyFresh = false);
     
     /**
      * get a cached entries value

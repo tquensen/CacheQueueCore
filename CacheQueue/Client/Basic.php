@@ -19,10 +19,34 @@ class Basic implements ClientInterface
     {
         return $this->connection->getValue($key, $onlyFresh);
     }
-    
+
+    public function getByTag($tag, $onlyFresh = false)
+    {
+        $response = array();
+        $results = $this->connection->getByTag($tag, $onlyFresh);
+
+        foreach ($results as $result) {
+            $response[$result['key']] = $result['data'];
+        }
+
+        return $response;
+    }
+
     public function getEntry($key)
     {
         return $this->connection->get($key);
+    }
+
+    public function getEntriesByTag($tag, $onlyFresh = false)
+    {
+        $response = array();
+        $results = $this->connection->getByTag($tag, $onlyFresh);
+
+        foreach ($results as $result) {
+            $response[$result['key']] = $result;
+        }
+
+        return $response;
     }
 
     public function set($key, $data, $freshFor, $force = false, $tags = array())
