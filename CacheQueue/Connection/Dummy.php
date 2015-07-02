@@ -16,7 +16,7 @@ class Dummy implements ConnectionInterface
         
     }
 
-    public function get($key)
+    public function get($key, $onlyFresh = false)
     {
         return false;
     }

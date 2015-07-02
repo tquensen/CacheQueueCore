@@ -30,9 +30,10 @@ interface ClientInterface
      * get a cached entry
      * 
      * @param string $key the key to get
+     * @param bool $onlyFresh true to return the entry only if it is fresh, false (default) to return also outdated entries
      * @return mixed the result array or false if not found 
      */
-    public function getEntry($key);
+    public function getEntry($key, $onlyFresh = false);
 
     /**
      * get cached entries by tag

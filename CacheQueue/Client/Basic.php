@@ -32,9 +32,9 @@ class Basic implements ClientInterface
         return $response;
     }
 
-    public function getEntry($key)
+    public function getEntry($key, $onlyFresh = false)
     {
-        return $this->connection->get($key);
+        return $this->connection->get($key, $onlyFresh);
     }
 
     public function getEntriesByTag($tag, $onlyFresh = false)

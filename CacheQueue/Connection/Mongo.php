@@ -33,7 +33,7 @@ class Mongo implements ConnectionInterface
         $this->collection->ensureIndex(array('tags' => 1), array('w' => $this->w));
     }
 
-    public function get($key)
+    public function get($key, $onlyFresh = false)
     {
         $result = $this->collection->findOne(array('_id' => $key));
         if (!$result) {
@@ -55,7 +55,7 @@ class Mongo implements ConnectionInterface
         $return['params'] = !empty($result['params']) ? $result['params'] : null;
         $return['data'] = isset($result['data']) ? $result['data'] : false;
 
-        return $return;
+        return (!$onlyFresh || $return['is_fresh']) ? $return : false;
     }
     
     public function getByTag($tag, $onlyFresh = false)

@@ -109,7 +109,7 @@ class MySQL implements ConnectionInterface
 
     }
 
-    public function get($key)
+    public function get($key, $onlyFresh = false)
     {
         $stmt = $this->stmtGet ?: $this->stmtGet = $this->db->prepare('SELECT id, fresh_until, queue_fresh_until, date_set, task, params, data, tags FROM '.$this->tableName.' WHERE id = ? LIMIT 1');
         if (!$stmt->execute(array($key))) {
@@ -141,7 +141,7 @@ class MySQL implements ConnectionInterface
         $return['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
         $return['data'] = isset($result['data']) ? unserialize($result['data']) : false;
 
-        return $return;
+        return (!$onlyFresh || $return['is_fresh']) ? $return : false;
     }
     
     

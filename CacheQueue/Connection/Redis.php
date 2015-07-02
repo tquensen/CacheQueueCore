@@ -36,7 +36,7 @@ class Redis implements ConnectionInterface
     {
     }
 
-    public function get($key)
+    public function get($key, $onlyFresh = false)
     {
         $result = $this->predis->mget(str_replace('{key}', $key, array_keys($this->fields)));
 
@@ -62,7 +62,7 @@ class Redis implements ConnectionInterface
         $return['params'] = !empty($result[6]) ? $result[6] : null;
         $return['data'] = isset($result[0]) ? unserialize($result[0]) : false;
 
-        return $return;
+        return (!$onlyFresh || $return['is_fresh']) ? $return : false;
     }
     
     public function getByTag($tag, $onlyFresh = false)
