@@ -41,7 +41,7 @@ class Piwik
         $response = @file_get_contents($requestUrl, false, $context);
         $responseData = @unserialize($response);
         
-        if ($responseData) {
+        if ($responseData !== false) {
             if (is_array($responseData) && isset($responseData['result']) && $responseData['result'] == 'error') {
                 throw new Exception('Piwik request failed: '.$responseData['message']);
             }
