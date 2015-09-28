@@ -52,14 +52,22 @@ class Basic implements WorkerInterface
                 $this->connection->updateJobStatus($job['key'], $job['worker_id']);
             }
         } catch (BuryException $e) {
-            $this->connection->updateJobStatus(
-                    $job['key'],
-                    $job['worker_id'],
-                    $e->getBuryTime() !== null ? $e->getBuryTime() : $freshUntil - time()
-            );
+            if ($temp) {
+                $this->connection->remove($job['key'], true);
+            } else {
+                $this->connection->updateJobStatus(
+                        $job['key'],
+                        $job['worker_id'],
+                        $e->getBuryTime() !== null ? $e->getBuryTime() : $freshUntil - time()
+                );
+            }
             throw $e;
         } catch (RequeueException $e) {
-            $this->connection->updateJobStatus($job['key'], $job['worker_id']);
+            if ($temp) {
+                $this->connection->remove($job['key'], true);
+            } else {
+                $this->connection->updateJobStatus($job['key'], $job['worker_id']);
+            }
             $this->connection->queue(
                     $temp ? true : $job['key'],
                     $task,
@@ -73,7 +81,11 @@ class Basic implements WorkerInterface
             );
             throw $e;
         } catch (\Exception $e) {
-            $this->connection->updateJobStatus($job['key'], $job['worker_id']);
+            if ($temp) {
+                $this->connection->remove($job['key'], true);
+            } else {
+                $this->connection->updateJobStatus($job['key'], $job['worker_id']);
+            }
             throw $e;
         }
 
