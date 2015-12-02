@@ -32,6 +32,7 @@ class Basic implements WorkerInterface
         $task = $job['task'];
         $params = $job['params'];
         $freshUntil = $job['fresh_until'];
+        $freshFor = $job['fresh_for'];
         $temp = !empty($job['temp']);
         
         try {
@@ -72,7 +73,7 @@ class Basic implements WorkerInterface
                     $temp ? true : $job['key'],
                     $task,
                     $params,
-                    $e->getFreshFor() !== null ? $e->getFreshFor() : $freshUntil - time(),
+                    $e->getFreshFor() !== null ? $e->getFreshFor() : $freshFor,
                     false,
                     $job['tags'],
                     $job['priority'],

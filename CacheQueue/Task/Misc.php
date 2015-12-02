@@ -19,7 +19,7 @@ namespace CacheQueue\Task;
  *
  * throw a \CacheQueue\Exception\RequeueException to queue the job again with the same data (task, params, ...)
  * that will be executed after the given delay (defaults to the remaining queue_fresh_for time)
- * with a new freshFor time (in addition to the delay, defaults to the remaining queue_fresh_for time)
+ * with a new freshFor time (in addition to the delay, defaults to the original fresh_for time)
  *
  */
 class Misc

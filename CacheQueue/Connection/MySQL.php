@@ -207,7 +207,7 @@ class MySQL implements ConnectionInterface
     {
         try {
             $this->db->beginTransaction();
-            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queued, queue_priority, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = ? AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
+            $stmt = $this->stmtGetJob ?: $this->stmtGetJob = $this->db->prepare('SELECT id, queue_fresh_until, queue_start, queued, queue_priority, queue_tags, task, params, data, is_temp FROM '.$this->tableName.' WHERE queued = ? AND queue_start <= ? ORDER BY queue_priority ASC LIMIT 1 FOR UPDATE');
             $stmt->execute(array($channel, time()));
             $result = $stmt->fetch(\PDO::FETCH_ASSOC);
             if (empty($result)) {
@@ -222,6 +222,7 @@ class MySQL implements ConnectionInterface
 
             $return['key'] = $result['id'];
             $return['fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
+            $return['fresh_for'] = !empty($result['queue_fresh_until']) && !empty($result['queue_start']) ? $result['queue_fresh_until'] - $result['queue_start'] : 0;
             if ($this->useFulltextTags) {
                 $return['tags'] = !empty($result['queue_tags']) ? explode(' ', $result['queue_tags']) : array();
             } else {
