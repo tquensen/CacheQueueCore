@@ -430,6 +430,8 @@ class Analytics
             $config['applicationName'] = 'unknown';
         }
 
+        $metric = !empty($params['metric']) ? $params['metric'] : 'pageviews';
+
         $op = !empty($params['operator']) ? $params['operator'] : '==';
         $path = !empty($params['pagePath']) ? $params['pagePath'] : '/';
         $pathStr = !empty($params['pagePath']) ? 'ga:pagePath' . $op . $params['pagePath'] : '';
@@ -458,13 +460,13 @@ class Analytics
             try {
                 $parameter = array(
                     'dimensions' => 'ga:pagePath',
-                    'sort' => '-ga:pageviews',
+                    'sort' => '-ga:'.$metric,
                     'max-results' => $limit
                 );
                 if ($hostStr || $pathStr) {
                     $parameter['filters'] = $hostStr . $pathStr;
                 }
-                $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, 'ga:pageviews', $parameter);
+                $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, 'ga:'.$metric, $parameter);
                 break;
             } catch (\Google_Service_Exception $e) {
                 $requestErrors = $e->getErrors();
@@ -503,7 +505,7 @@ class Analytics
         foreach ($topUrlsTmp as $k => $v) {
             $topUrls[] = array(
                 'url' => $k,
-                'pageviews' => $v
+                'count' => $v
             );
         }
 
@@ -529,6 +531,8 @@ class Analytics
             $config['applicationName'] = 'unknown';
         }
 
+        $metric = !empty($params['metric']) ? $params['metric'] : 'pageviews';
+        
         $op = !empty($params['operator']) ? $params['operator'] : '==';
         $path = !empty($params['pagePath']) ? $params['pagePath'] : '/';
         $pathStr = !empty($params['pagePath']) ? 'ga:pagePath' . $op . $params['pagePath'] : '';
@@ -557,13 +561,13 @@ class Analytics
             try {
                 $parameter = array(
                     'dimensions' => 'ga:keyword',
-                    'sort' => '-ga:pageviews',
+                    'sort' => '-ga:'.$metric,
                     'max-results' => $limit
                 );
                 if ($hostStr || $pathStr) {
                     $parameter['filters'] = $hostStr . $pathStr;
                 }
-                $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, 'ga:pageviews', $parameter);
+                $data = $service->data_ga->get('ga:' . $params['profileId'], $dateFrom, $dateTo, 'ga:'.$metric, $parameter);
                 break;
             } catch (\Google_Service_Exception $e) {
                 $requestErrors = $e->getErrors();
@@ -605,7 +609,7 @@ class Analytics
             }
             $topKeywords[] = array(
                 'keyword' => $k,
-                'pageviews' => $v
+                'count' => $v
             );
         }
 
