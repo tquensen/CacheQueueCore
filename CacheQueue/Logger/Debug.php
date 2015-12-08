@@ -1,7 +1,7 @@
 <?php
 namespace CacheQueue\Logger;
 
-use CacheQueue\Exception;
+use CacheQueue\Exception\Exception;
 
 class Debug implements LoggerInterface
 {
@@ -16,7 +16,7 @@ class Debug implements LoggerInterface
         $this->showPid = !empty($config['showPid']);
         $this->logLevel = !empty($config['logLevel']) ? $config['logLevel'] : self::LOG_NONE;
 
-        $this->stream = @fopen('php://'.$stream);
+        $this->stream = @fopen('php://'.$stream, 'w+');
         if (!$this->stream) {
             throw new Exception('Could not open stream php://'.$stream);
         }
@@ -76,7 +76,7 @@ class Debug implements LoggerInterface
     
     private function doLog($message, $level)
     {
-        fwrite($this->stream, date('[Y-m-d H.i:s] ').($this->showPid ? 'PID '.getmypid().' | ' : '').$level.' '.$message."\n");
+        fwrite($this->stream, date('[Y-m-d H:i:s] ').($this->showPid ? 'PID '.getmypid().' | ' : '').$level.' '.$message."\n");
     }
 
     public function __destruct()
