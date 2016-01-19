@@ -50,7 +50,7 @@ class Debug implements LoggerInterface
             $this->doLog($text, 'ERROR   ');
         }
         if ($this->realLogger) {
-            $this->realLogger->logError($e);
+            $this->realLogger->logError($text);
         }
     }
 
@@ -60,7 +60,7 @@ class Debug implements LoggerInterface
             $this->doLog($text, 'NOTICE  ');
         }
         if ($this->realLogger) {
-            $this->realLogger->logNotice($e);
+            $this->realLogger->logNotice($text);
         }
     }
     
@@ -70,7 +70,7 @@ class Debug implements LoggerInterface
             $this->doLog($text, 'DEBUG  ');
         }
         if ($this->realLogger) {
-            $this->realLogger->logDebug($e);
+            $this->realLogger->logDebug($text);
         }
     }
     
