@@ -521,7 +521,7 @@ class Mongo implements ConnectionInterface
                     ),
                     'queued' => false
                 ),
-                array('w' => $this->w, 'multiple' => true, 'timeout' => 0)
+                array('w' => $this->w, 'multiple' => true, 'timeout' => -1)
             );
     }
 
