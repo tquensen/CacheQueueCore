@@ -24,22 +24,12 @@ class Social
     {
         // set timeout
         $context = stream_context_create(array('http' => array('timeout' => 15)));
-
-        //FQL workaround for bug https://developers.facebook.com/bugs/180781098727185?browse=search_50dda74e1870c8d60275326
-        $rawData = @file_get_contents('https://api.facebook.com/method/fql.query?format=json&query=select%20total_count%20from%20link_stat%20where%20url%20=%20%22' . $params . '%22', 0, $context);
-
-        $facebookData = @json_decode($rawData);
-        if ($facebookData && is_array($facebookData) && isset($facebookData[0]) && isset($facebookData[0]->total_count)) {
-            return (int) $facebookData[0]->total_count;
-        }
-        return null;
-        //end of workaround
-        // get count data from facebook
-        // see: https://developers.facebook.com/docs/reference/api/
         $rawData = @file_get_contents('http://graph.facebook.com/?ids=' . $params, 0, $context);
 
-        if (($facebookData = @json_decode($rawData)) && isset($facebookData->$params->shares)) {
-            return (int) $facebookData->$params->shares;
+        if (($facebookData = @json_decode($rawData)) && isset($facebookData->$params->share->share_count)) {
+            return (int)$facebookData->$params->share->share_count;
+        } else {
+            return null;
         }
     }
 
