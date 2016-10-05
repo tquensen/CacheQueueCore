@@ -115,7 +115,7 @@ class Mongo implements ConnectionInterface
         $result = $this->db->command(array(
             'findAndModify' => $this->collectionName,
             'query' => array('queued' => $channel, 'queue_start' => array('$lte' => new \MongoDate())),
-            'sort' => array('queue_priority' => 1),
+            'sort' => array('queued' => -1, 'queue_start' => 1, 'queue_priority' => 1),
             'update' => array('$set' => array('queued' => null, 'queued_worker' => $workerId))
         ));
         
