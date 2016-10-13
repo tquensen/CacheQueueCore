@@ -16,20 +16,33 @@ class Social
         $rawData = @file_get_contents('http://urls.api.twitter.com/1/urls/count.json?url=' . $params, 0, $context);
 
         if ($twitterData = @json_decode($rawData)) {
-            return (int) $twitterData->count;
+            return (int)$twitterData->count;
+        } else {
+            return null;
         }
     }
 
     public function getLikes($params, $config, $job, $worker)
     {
-        // set timeout
-        $context = stream_context_create(array('http' => array('timeout' => 15)));
-        $rawData = @file_get_contents('http://graph.facebook.com/?ids=' . $params, 0, $context);
+        if (isset($config['donreach']) && strlen($config['donreach'])) {
+            $context = stream_context_create(array('http' => array('timeout' => 15)));
+            $rawData = @file_get_contents($config['donreach'] . $params, 0, $context);
 
-        if (($facebookData = @json_decode($rawData)) && isset($facebookData->$params->share->share_count)) {
-            return (int)$facebookData->$params->share->share_count;
+            if (($facebookData = @json_decode($rawData)) && isset($facebookData->shares->facebook)) {
+                return (int)$facebookData->shares->facebook;
+            } else {
+                return null;
+            }
         } else {
-            return null;
+            // set timeout
+            $context = stream_context_create(array('http' => array('timeout' => 15)));
+            $rawData = @file_get_contents('http://graph.facebook.com/?ids=' . $params, 0, $context);
+
+            if (($facebookData = @json_decode($rawData)) && isset($facebookData->$params->share->share_count)) {
+                return (int)$facebookData->$params->share->share_count;
+            } else {
+                return null;
+            }
         }
     }
 
