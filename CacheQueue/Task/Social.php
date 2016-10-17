@@ -6,6 +6,31 @@ use CacheQueue\Exception\Exception;
 
 class Social
 {
+    public function getDonReachShares($params, $config, $job, $worker)
+    {
+        if (empty($params['url']) || !is_string($params['url'])) {
+            throw new \Exception('getDonReachShares: url parameter is required');
+        }
+
+        if (empty($params['providers']) || !is_string($params['providers'])) {
+            throw new \Exception('getDonReachShares: providers parameter is required');
+        }
+
+        if (empty($config['endpoint']) || empty($config['endpoint'])) {
+            throw new \Exception('getDonReachShares: endpoint config option is required');
+        }
+
+        $endpoint = $config['endpoint'] . '?providers=' . $params['providers'] . '&url=' . $params['url'];
+
+        $context = stream_context_create(array('http' => array('timeout' => 15)));
+        $rawData = @file_get_contents($endpoint, 0, $context);
+
+        if (($data = @json_decode($rawData)) && isset($data->total)) {
+            return $data;
+        } else {
+            return null;
+        }
+    }
 
     public function getRetweets($params, $config, $job, $worker)
     {
@@ -24,25 +49,14 @@ class Social
 
     public function getLikes($params, $config, $job, $worker)
     {
-        if (isset($config['donreach']) && strlen($config['donreach'])) {
-            $context = stream_context_create(array('http' => array('timeout' => 15)));
-            $rawData = @file_get_contents($config['donreach'] . $params, 0, $context);
+        // set timeout
+        $context = stream_context_create(array('http' => array('timeout' => 15)));
+        $rawData = @file_get_contents('http://graph.facebook.com/?ids=' . $params, 0, $context);
 
-            if (($facebookData = @json_decode($rawData)) && isset($facebookData->shares->facebook)) {
-                return (int)$facebookData->shares->facebook;
-            } else {
-                return null;
-            }
+        if (($facebookData = @json_decode($rawData)) && isset($facebookData->$params->share->share_count)) {
+            return (int)$facebookData->$params->share->share_count;
         } else {
-            // set timeout
-            $context = stream_context_create(array('http' => array('timeout' => 15)));
-            $rawData = @file_get_contents('http://graph.facebook.com/?ids=' . $params, 0, $context);
-
-            if (($facebookData = @json_decode($rawData)) && isset($facebookData->$params->share->share_count)) {
-                return (int)$facebookData->$params->share->share_count;
-            } else {
-                return null;
-            }
+            return null;
         }
     }
 
