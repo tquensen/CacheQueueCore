@@ -25,7 +25,7 @@ class Social
         $context = stream_context_create(array('http' => array('timeout' => 15)));
         $rawData = @file_get_contents($endpoint, 0, $context);
 
-        if (($data = @json_decode($rawData)) && isset($data->total)) {
+        if (($data = @json_decode($rawData, true)) && isset($data->total)) {
             return $data;
         } else {
             return null;
