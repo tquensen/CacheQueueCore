@@ -290,7 +290,7 @@ class Mongo implements ConnectionInterface
                         '_id' => $key,
                         '$nor' => array(
                             array('fresh_until' => array('$gte' => $queueStart)),
-                            array('queue_fresh_until' => array('$gte' => new $queueStart))
+                            array('queue_fresh_until' => array('$gte' => $queueStart))
                         )
                     ),
                     array('$set' => array(

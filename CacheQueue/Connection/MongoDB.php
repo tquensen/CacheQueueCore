@@ -5,10 +5,10 @@ class MongoDB implements ConnectionInterface
 {
     private $dbName = null;
     private $collectionName = null;
-    
+
     private $db = null;
     private $collection = null;
-    
+
     public function __construct($config = array())
     {
         $driverOptions = !empty($config['driverOptions']) ? $config['driverOptions'] : array();
@@ -18,11 +18,11 @@ class MongoDB implements ConnectionInterface
 
         $this->dbName = !empty($config['database']) ? $config['database'] : 'cachequeue';
         $this->collectionName = !empty($config['collection']) ? $config['collection'] : 'cache';
-        
+
         $this->db = $mongo->{$this->dbName};
         $this->collection = $this->db->{$this->collectionName};
     }
-    
+
     public function setup()
     {
         $this->collection->createIndex(array('queued' => -1, 'queue_start' => 1, 'queue_priority' => 1));
@@ -38,15 +38,16 @@ class MongoDB implements ConnectionInterface
         if (!$result) {
             return false;
         }
+
         $return = array();
-        
+
         $return['key'] = $result['_id'];
         //$return['queued'] = !empty($result['queued']);
         $return['fresh_until'] = !empty($result['fresh_until']) ? $result['fresh_until']->toDateTime()->getTimestamp() : 0;
         $return['is_fresh'] = $return['fresh_until'] > time();
 
         $return['date_set'] = !empty($result['date_set']) ? $result['date_set']->toDateTime()->getTimestamp() : 0;
-        
+
         $return['queue_fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until']->toDateTime()->getTimestamp() : 0;
         $return['queue_is_fresh'] = (!empty($result['queue_fresh_until']) && $result['queue_fresh_until']->toDateTime()->getTimestamp() > time());
         $return['tags'] = isset($result['tags']) ? $result['tags'] : array();
@@ -56,12 +57,12 @@ class MongoDB implements ConnectionInterface
 
         return (!$onlyFresh || $return['is_fresh']) ? $return : false;
     }
-    
+
     public function getByTag($tag, $onlyFresh = false)
     {
         $tags = array_values((array) $tag);
         $return = array();
-        
+
         if ($onlyFresh) {
             $results = $this->collection->find(
                 array(
@@ -76,7 +77,7 @@ class MongoDB implements ConnectionInterface
                 )
             );
         }
-        
+
         foreach ($results as $result) {
             $entry = array();
             $entry['key'] = $result['_id'];
@@ -85,7 +86,7 @@ class MongoDB implements ConnectionInterface
             $entry['is_fresh'] = $entry['fresh_until'] > time();
 
             $entry['date_set'] = !empty($result['date_set']) ? $result['date_set']->toDateTime()->getTimestamp() : 0;
-            
+
             $entry['queue_fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until']->toDateTime()->getTimestamp() : 0;
             $entry['queue_is_fresh'] = (!empty($result['queue_fresh_until']) && $result['queue_fresh_until']->toDateTime()->getTimestamp() > time());
             $entry['tags'] = isset($result['tags']) ? $result['tags'] : array();
@@ -94,12 +95,12 @@ class MongoDB implements ConnectionInterface
             $entry['data'] = isset($result['data']) ? $result['data'] : false;
             $return[] = $entry;
         }
-        
+
         unset($results);
-        
+
         return $return;
     }
-    
+
     public function getValue($key, $onlyFresh = false)
     {
         $result = $this->get($key);
@@ -111,47 +112,51 @@ class MongoDB implements ConnectionInterface
 
     public function getJob($workerId, $channel = 1)
     {
-        $result = $this->db->command(array(
-            'findAndModify' => $this->collectionName,
-            'query' => array('queued' => $channel, 'queue_start' => array('$lte' => new \MongoDB\BSON\UTCDateTime(time() * 1000))),
-            'sort' => array('queued' => -1, 'queue_start' => 1, 'queue_priority' => 1),
-            'update' => array('$set' => array('queued' => null, 'queued_worker' => $workerId))
-        ));
-        
-        if (empty($result['ok']) || empty($result['value'])) {
+        $result = $this->collection->findOneAndUpdate(
+            array('queued' => $channel, 'queue_start' => array('$lte' => new \MongoDB\BSON\UTCDateTime(time() * 1000))),
+            array('$set' => array('queued' => null, 'queued_worker' => $workerId)),
+            array(
+                'sort' => array('queued' => -1, 'queue_start' => 1, 'queue_priority' => 1),
+                'returnDocument' => \MongoDB\Operation\FindOneAndUpdate::RETURN_DOCUMENT_AFTER
+            ));
+
+
+        if (empty($result)) {
             return false;
         }
-        
+
+        $result = $this->respectTypeMap($result);
+
         $return = array();
-        
-        $return['key'] = $result['value']['_id'];
-        $return['fresh_until'] = !empty($result['value']['queue_fresh_until']) ? $result['value']['queue_fresh_until']->toDateTime()->getTimestamp() : 0;
-        $return['fresh_for'] = !empty($result['value']['queue_fresh_until']) && !empty($result['value']['queue_start']) ? $result['value']['queue_fresh_until']->toDateTime()->getTimestamp() - $result['value']['queue_start']->toDateTime()->getTimestamp() : 0;
-        $return['tags'] = !empty($result['value']['queue_tags']) ? $result['value']['queue_tags'] : null;
-        $return['task'] = !empty($result['value']['task']) ? $result['value']['task'] : null;
-        $return['params'] = !empty($result['value']['params']) ? $result['value']['params'] : null;
-        $return['data'] = isset($result['value']['data']) ? $result['value']['data'] : null;
-        $return['channel'] = isset($result['value']['queued']) ? $result['value']['queued'] : 0;
-        $return['priority'] = isset($result['value']['queue_priority']) ? $result['value']['queue_priority'] : 50;
-        $return['temp'] = !empty($result['value']['temp']);
+
+        $return['key'] = $result['_id'];
+        $return['fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until']->toDateTime()->getTimestamp() : 0;
+        $return['fresh_for'] = !empty($result['queue_fresh_until']) && !empty($result['queue_start']) ? $result['queue_fresh_until']->toDateTime()->getTimestamp() - $result['queue_start']->toDateTime()->getTimestamp() : 0;
+        $return['tags'] = !empty($result['queue_tags']) ? $result['queue_tags'] : null;
+        $return['task'] = !empty($result['task']) ? $result['task'] : null;
+        $return['params'] = !empty($result['params']) ? $result['params'] : null;
+        $return['data'] = isset($result['data']) ? $result['data'] : null;
+        $return['channel'] = isset($result['queued']) ? $result['queued'] : 0;
+        $return['priority'] = isset($result['queue_priority']) ? $result['queue_priority'] : 50;
+        $return['temp'] = !empty($result['temp']);
         $return['worker_id'] = $workerId;
-        
+
         return $return;
     }
-    
+
     public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)
     {
         try {
             return (bool) $this->collection->updateOne(
-                    array(
-                        '_id' => $key,
-                        'queued_worker' => $workerId
-                    ),
-                    array('$set' => array(
-                        'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime($newQueueFreshFor > 0 ? ($newQueueFreshFor + time()) * 1000 : 0),
-                        'queued_worker' => null
-                    ))
-                );
+                array(
+                    '_id' => $key,
+                    'queued_worker' => $workerId
+                ),
+                array('$set' => array(
+                    'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime($newQueueFreshFor > 0 ? ($newQueueFreshFor + time()) * 1000 : 0),
+                    'queued_worker' => null
+                ))
+            );
         } catch (\MongoDB\Driver\Exception\WriteException $e) {
             $writeResult = $e->getWriteResult();
             foreach ($writeResult->getWriteErrors() as $error) {
@@ -162,13 +167,13 @@ class MongoDB implements ConnectionInterface
             throw $e;
         }
     }
-    
+
     public function set($key, $data, $freshFor, $force = false, $tags = array())
     {
         $freshUntil = new \MongoDB\BSON\UTCDateTime((time() + $freshFor) * 1000);
-        
+
         $tags = array_values((array) $tags);
-        
+
         try {
             if ($force) {
                 return (bool) $this->collection->updateOne(
@@ -209,7 +214,7 @@ class MongoDB implements ConnectionInterface
             }
             throw $e;
         }
-        
+
     }
 
     public function refresh($key, $freshFor, $force = false)
@@ -264,12 +269,12 @@ class MongoDB implements ConnectionInterface
         } else {
             $temp = false;
         }
-        
+
         $freshUntil = new \MongoDB\BSON\UTCDateTime((time() + $freshFor + $delay) * 1000);
         $queueStart = new \MongoDB\BSON\UTCDateTime((time() + $delay) * 1000);
-        
+
         $tags = array_values((array) $tags);
-        
+
         try {
             if ($force) {
                 return (bool) $this->collection->updateOne(
@@ -295,7 +300,7 @@ class MongoDB implements ConnectionInterface
                         '_id' => $key,
                         '$nor' => array(
                             array('fresh_until' => array('$gte' => $queueStart)),
-                            array('queue_fresh_until' => array('$gte' => new $queueStart))
+                            array('queue_fresh_until' => array('$gte' => $queueStart))
                         )
                     ),
                     array('$set' => array(
@@ -327,11 +332,11 @@ class MongoDB implements ConnectionInterface
     {
         return $channel === true ?  $this->collection->count(array('queued' => array('$gt' => 0))) : $this->collection->count(array('queued' => $channel));
     }
-    
+
     public function countAll($fresh = null)
     {
         if ($fresh === null) {
-                return (int) $this->collection->count();
+            return (int) $this->collection->count();
         } else {
             if ($fresh) {
                 return (int) $this->collection->count(array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000))));
@@ -340,7 +345,7 @@ class MongoDB implements ConnectionInterface
             }
         }
     }
-    
+
     public function countByTag($tag, $fresh = null)
     {
         $tags = array_values((array) $tag);
@@ -354,18 +359,18 @@ class MongoDB implements ConnectionInterface
             }
         }
     }
-    
+
     public function remove($key, $force = false)
     {
         if (!$force) {
             return (bool) $this->collection->deleteOne(
-                    array(
-                        '_id' => $key,
-                        '$nor' => array(
-                            array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000)))
-                        )
+                array(
+                    '_id' => $key,
+                    '$nor' => array(
+                        array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000)))
                     )
-                );
+                )
+            );
         } else {
             return (bool) $this->collection->deleteOne(
                 array(
@@ -374,57 +379,57 @@ class MongoDB implements ConnectionInterface
             );
         }
     }
-    
+
     public function removeByTag($tag, $force = false)
     {
         $tags = array_values((array) $tag);
         if (!$force) {
             return (bool) $this->collection->deleteMany(
-                    array(
-                        '$nor' => array(
-                            array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000)))
-                        ),
-                        'tags' => array('$in' => $tags)  
-                    )
-                );
+                array(
+                    '$nor' => array(
+                        array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000)))
+                    ),
+                    'tags' => array('$in' => $tags)
+                )
+            );
         } else {
             return (bool) $this->collection->deleteMany(
                 array('tags' => array('$in' => $tags))
             );
         }
     }
-    
+
     public function removeAll($force = false)
     {
         if (!$force) {
             return (bool) $this->collection->deleteMany(
-                    array(
-                        '$nor' => array(
-                            array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000)))
-                        )
+                array(
+                    '$nor' => array(
+                        array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000)))
                     )
-                );
+                )
+            );
         } else {
             return (bool) $this->collection->deleteMany(
                 array()
             );
         }
     }
-    
+
     public function outdate($key, $force = false)
     {
         if (!$force) {
             return (bool) $this->collection->updateOne(
-                    array(
-                        '_id' => $key,
-                        'fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000))
-                    ),
-                    array('$set' => array(
-                        'fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
-                        'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
-                        'queued' => false
-                    ))
-                );
+                array(
+                    '_id' => $key,
+                    'fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime(time() * 1000))
+                ),
+                array('$set' => array(
+                    'fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
+                    'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
+                    'queued' => false
+                ))
+            );
         } else {
             return (bool) $this->collection->updateOne(
                 array(
@@ -438,22 +443,22 @@ class MongoDB implements ConnectionInterface
             );
         }
     }
-    
+
     public function outdateByTag($tag, $force = false)
     {
         $tags = array_values((array) $tag);
         if (!$force) {
             return (bool) $this->collection->updateMany(
-                    array(
-                        'fresh_until' => array('$gt' => new \MongoDB\BSON\UTCDateTime(time() * 1000)),
-                        'tags' => array('$in' => $tags)
-                    ),
-                    array('$set' => array(
-                        'fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
-                        'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
-                        'queued' => false
-                    ))
-                );
+                array(
+                    'fresh_until' => array('$gt' => new \MongoDB\BSON\UTCDateTime(time() * 1000)),
+                    'tags' => array('$in' => $tags)
+                ),
+                array('$set' => array(
+                    'fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
+                    'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
+                    'queued' => false
+                ))
+            );
         } else {
             return (bool) $this->collection->updateMany(
                 array(
@@ -467,20 +472,20 @@ class MongoDB implements ConnectionInterface
             );
         }
     }
-    
+
     public function outdateAll($force = false)
     {
         if (!$force) {
             return (bool) $this->collection->updateMany(
-                    array(
-                        'fresh_until' => array('$gt' => new \MongoDB\BSON\UTCDateTime(time() * 1000))
-                    ),
-                    array('$set' => array(
-                        'fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
-                        'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
-                        'queued' => false
-                    ))
-                );
+                array(
+                    'fresh_until' => array('$gt' => new \MongoDB\BSON\UTCDateTime(time() * 1000))
+                ),
+                array('$set' => array(
+                    'fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
+                    'queue_fresh_until' => new \MongoDB\BSON\UTCDateTime((time() - 1) * 1000),
+                    'queued' => false
+                ))
+            );
         } else {
             return (bool) $this->collection->updateMany(
                 array(
@@ -493,7 +498,7 @@ class MongoDB implements ConnectionInterface
             );
         }
     }
-    
+
     public function clearQueue($channel = true)
     {
         return (bool) $this->collection->updateMany(
@@ -506,17 +511,17 @@ class MongoDB implements ConnectionInterface
             ))
         );
     }
-    
+
     public function cleanup($outdatedFor = 0)
     {
         return (bool) $this->collection->deleteMany(
-                array(
-                    '$nor' => array(
-                        array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime((time()-$outdatedFor) * 1000))),
-                    ),
-                    'queued' => false
-                )
-            );
+            array(
+                '$nor' => array(
+                    array('fresh_until' => array('$gte' => new \MongoDB\BSON\UTCDateTime((time()-$outdatedFor) * 1000))),
+                ),
+                'queued' => false
+            )
+        );
     }
 
     public function obtainLock($key, $lockFor, $timeout = null)
@@ -550,5 +555,34 @@ class MongoDB implements ConnectionInterface
         );
         return true;
     }
-    
+
+    /**
+     * Here we take a object in a response from MongoDB and we walk it casting to an array here as new
+     * MongoDB driver seems to return a \stdObject even though in the MongoClient object we specify a
+     * typeMap which says it should return an array (mimicking the older driver's behaviour).
+     *
+     * Any method other than find or findOne which actually under the hood returns a result array structure where
+     * the returned object is nested inside it seems to just ignore the typeMap and there is no way with the library
+     * to specify via individual method calls like "findOneAndUpdate".
+     *
+     * So we use a heavy handed cast on anything that looks like an array to achieve the desired result.
+     *
+     * @see https://github.com/mongodb/mongo-php-library/issues/136#issuecomment-251405293
+     */
+    private function respectTypeMap($responseValue)
+    {
+        $returnValue = $responseValue;
+        if ($responseValue instanceof \stdClass) {
+            $returnValue = (array)$responseValue;
+        }
+
+        if (is_array($returnValue)) {
+            foreach ($returnValue as &$value) {
+                $value = $this->respectTypeMap($value);
+            }
+        }
+
+        return $returnValue;
+    }
+
 }
