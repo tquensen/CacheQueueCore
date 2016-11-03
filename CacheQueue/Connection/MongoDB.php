@@ -152,9 +152,12 @@ class MongoDB implements ConnectionInterface
                         'queued_worker' => null
                     ))
                 );
-        }  catch (\MongoCursorException $e) {
-            if ($e->getCode() == 11000) {
-                return false;
+        } catch (\MongoDB\Driver\Exception\WriteException $e) {
+            $writeResult = $e->getWriteResult();
+            foreach ($writeResult->getWriteErrors() as $error) {
+                if ($error->getCode() == 11000) {
+                    return true;
+                }
             }
             throw $e;
         }
@@ -197,9 +200,12 @@ class MongoDB implements ConnectionInterface
                     array('upsert' => true)
                 );
             }
-        } catch (\MongoCursorException $e) {
-            if ($e->getCode() == 11000) {
-                return true;
+        } catch (\MongoDB\Driver\Exception\WriteException $e) {
+            $writeResult = $e->getWriteResult();
+            foreach ($writeResult->getWriteErrors() as $error) {
+                if ($error->getCode() == 11000) {
+                    return true;
+                }
             }
             throw $e;
         }
@@ -235,9 +241,12 @@ class MongoDB implements ConnectionInterface
                     ))
                 );
             }
-        } catch (\MongoCursorException $e) {
-            if ($e->getCode() == 11000) {
-                return true;
+        } catch (\MongoDB\Driver\Exception\WriteException $e) {
+            $writeResult = $e->getWriteResult();
+            foreach ($writeResult->getWriteErrors() as $error) {
+                if ($error->getCode() == 11000) {
+                    return true;
+                }
             }
             throw $e;
         }
@@ -303,9 +312,12 @@ class MongoDB implements ConnectionInterface
                     array('upsert' => true)
                 );
             }
-        }  catch (\MongoCursorException $e) {
-            if ($e->getCode() == 11000) {
-                return true;
+        } catch (\MongoDB\Driver\Exception\WriteException $e) {
+            $writeResult = $e->getWriteResult();
+            foreach ($writeResult->getWriteErrors() as $error) {
+                if ($error->getCode() == 11000) {
+                    return true;
+                }
             }
             throw $e;
         }
