@@ -4,7 +4,7 @@ namespace CacheQueue\Connection;
 class MySQL implements ConnectionInterface
 {
     private $tableName = null;
-    
+
     /**
      * @var \PDO
      */
@@ -65,12 +65,12 @@ class MySQL implements ConnectionInterface
      * @var \PDOStatement
      */
     private $stmtReleaseLock = null;
-    
+
     private $useFulltextTags = null;
-    
+
     public function __construct($config = array())
     {
-        
+
         $this->db = new \PDO($config['dns'], $config['user'], $config['pass'], !empty($config['options']) ? $config['options'] : array());
         $this->db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         if ($this->db && $this->db->getAttribute(\PDO::ATTR_DRIVER_NAME) == 'mysql') {
@@ -78,10 +78,10 @@ class MySQL implements ConnectionInterface
         }
 
         $this->tableName = !empty($config['table']) ? $config['table'] : 'cache';
-        
+
         $this->useFulltextTags = !empty($config['useFulltextTags']);
     }
-    
+
     public function setup()
     {
         $this->db->query('CREATE TABLE '.$this->tableName.' (
@@ -120,16 +120,16 @@ class MySQL implements ConnectionInterface
         if (!$result) {
             return false;
         }
-        
+
         $return = array();
-        
+
         $return['key'] = $result['id'];
         //$return['queued'] = !empty($result['queued']);
         $return['fresh_until'] = !empty($result['fresh_until']) ? $result['fresh_until'] : 0;
         $return['is_fresh'] = $return['fresh_until'] > time();
 
         $return['date_set'] = !empty($result['date_set']) ? $result['date_set'] : 0;
-        
+
         $return['queue_fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
         $return['queue_is_fresh'] = $return['queue_fresh_until'] > time();
         if ($this->useFulltextTags) {
@@ -143,28 +143,28 @@ class MySQL implements ConnectionInterface
 
         return (!$onlyFresh || $return['is_fresh']) ? $return : false;
     }
-    
-    
+
+
     public function getByTag($tag, $onlyFresh = false)
     {
-        
+
         $tags = array_values((array) $tag);
         $return = array();
-        
+
         $query = 'SELECT id, fresh_until, queue_fresh_until, date_set, task, params, data, tags FROM '.$this->tableName.' WHERE';
-        
+
         if ($this->useFulltextTags) {
-            $tags = preg_replace('/[^a-zA-Z0-9_]/', '_', implode(' ', $tags));
+            $tags = implode(' ', array_map(function($tag) { return preg_replace('/[^a-zA-Z0-9_]/', '_', $tag); }, $tags));
             $query .= ' MATCH (tags) AGAINST ("'.$tags.'" IN BOOLEAN MODE) ';
         } else {
             $query .= ' (tags LIKE "%##'.implode('%" OR tags LIKE "%##', $tags).'%") ';
         }
-        
+
         if ($onlyFresh) {
             $query .= ' AND fresh_until > '.time();
         }
-        
-        
+
+
         if (!$stmt = $this->db->query($query)) {
             return false;
         }
@@ -180,20 +180,20 @@ class MySQL implements ConnectionInterface
             $entry['queue_fresh_until'] = !empty($result['queue_fresh_until']) ? $result['queue_fresh_until'] : 0;
             $entry['queue_is_fresh'] = $entry['queue_fresh_until'] > time();
             if ($this->useFulltextTags) {
-                $entry['tags'] = !empty($result['tags']) ? explode('##', mb_substr($result['tags'], 2, mb_strlen($result['tags']), 'UTF-8')) : array();
-            } else {
                 $entry['tags'] = !empty($result['tags']) ? explode(' ', $result['tags']) : array();
+            } else {
+                $entry['tags'] = !empty($result['tags']) ? explode('##', mb_substr($result['tags'], 2, mb_strlen($result['tags']), 'UTF-8')) : array();
             }
             $entry['task'] = !empty($result['task']) ? $result['task'] : null;
             $entry['params'] = !empty($result['params']) ? unserialize($result['params']) : null;
             $entry['data'] = isset($result['data']) ? unserialize($result['data']) : false;
-            
+
             $return[] = $entry;
         }
-        
+
         return $return;
     }
-    
+
     public function getValue($key, $onlyFresh = false)
     {
         $result = $this->get($key);
@@ -243,24 +243,24 @@ class MySQL implements ConnectionInterface
             return false;
         }
     }
-    
+
     public function updateJobStatus($key, $workerId, $newQueueFreshFor = 0)
     {
         $stmt = $this->stmtUpdateJobStatus ?: $this->stmtUpdateJobStatus = $this->db->prepare('UPDATE '.$this->tableName.' SET queued_worker = null, queue_fresh_until = ? WHERE queued_worker = ? AND id = ?');
         return $stmt->execute(array($newQueueFreshFor > 0 ? $newQueueFreshFor + time() : 0, $workerId, $key));
     }
-    
+
     public function set($key, $data, $freshFor, $force = false, $tags = array())
     {
         $freshUntil = time() + $freshFor;
-        
+
         $tags = array_values((array) $tags);
         if ($this->useFulltextTags) {
-            $tags = preg_replace('/[^a-zA-Z0-9_]/', '_', implode(' ', $tags));
+            $tags = implode(' ', array_map(function($tag) { return preg_replace('/[^a-zA-Z0-9_]/', '_', $tag); }, $tags));
         } else {
             $tags = !empty($tags) ? '##'.implode('##', $tags) : '';
         }
-        
+
         try {
             $this->db->beginTransaction();
             $stmt = $this->stmtSetGet ?: $this->stmtSetGet = $this->db->prepare('SELECT id, fresh_until FROM '.$this->tableName.' WHERE id = ? LIMIT 1 FOR UPDATE');
@@ -278,7 +278,7 @@ class MySQL implements ConnectionInterface
                 $this->db->commit();
                 return true;
             }
-            
+
             if ($force || $result['fresh_until'] < time()) {
                 $stmt = $this->stmtSetUpdate ?: $this->stmtSetUpdate = $this->db->prepare('UPDATE '.$this->tableName.' SET
                     fresh_until = ?,
@@ -293,7 +293,7 @@ class MySQL implements ConnectionInterface
             } else {
                 $this->db->commit();
                 return true;
-            }   
+            }
         } catch (\PDOException $e) {
             $this->db->rollBack();
             return false;
@@ -342,17 +342,17 @@ class MySQL implements ConnectionInterface
         } else {
             $temp = false;
         }
-        
+
         $freshUntil = time() + $freshFor + $delay;
         $queueStart = time() + $delay;
-        
+
         $tags = array_values((array) $tags);
         if ($this->useFulltextTags) {
-            $tags = preg_replace('/[^a-zA-Z0-9_]/', '_', implode(' ', $tags));
+            $tags = implode(' ', array_map(function($tag) { return preg_replace('/[^a-zA-Z0-9_]/', '_', $tag); }, $tags));
         } else {
             $tags = !empty($tags) ? '##'.implode('##', $tags) : '';
         }
-        
+
         try {
             $this->db->beginTransaction();
             $stmt = $this->stmtQueueGet ?: $this->stmtQueueGet = $this->db->prepare('SELECT id, fresh_until, queue_fresh_until FROM '.$this->tableName.' WHERE id = ? LIMIT 1 FOR UPDATE');
@@ -368,14 +368,14 @@ class MySQL implements ConnectionInterface
                     params = ?,
                     queue_priority = ?,
                     queue_tags = ?,
-                    queue_start = ?
+                    queue_start = ?,
                     is_temp = ?
                     ');
-                $stmt->execute(array($key, $freshUntil, $channel, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart));
+                $stmt->execute(array($key, $freshUntil, $channel, $task, serialize($params), $priority, $tags, $queueStart, $temp ? 1 : 0));
                 $this->db->commit();
                 return true;
             }
-            
+
             if ($force || ($result['fresh_until'] < $queueStart && $result['queue_fresh_until'] < $queueStart)) {
                 $stmt = $this->stmtQueueUpdate ?: $this->stmtQueueUpdate = $this->db->prepare('UPDATE '.$this->tableName.' SET
                     queue_fresh_until = ?,
@@ -389,13 +389,13 @@ class MySQL implements ConnectionInterface
                     is_temp = ?
                     WHERE id = ?
                     ');
-                $stmt->execute(array($key, $freshUntil, $channel, $task, serialize($params), $priority, $tags, $temp ? 1 : 0, $queueStart, $key));
+                $stmt->execute(array($freshUntil, $channel, $task, serialize($params), $priority, $tags, $queueStart, $temp ? 1 : 0, $key));
                 $this->db->commit();
                 return true;
             } else {
                 $this->db->commit();
                 return true;
-            }   
+            }
         } catch (\PDOException $e) {
             $this->db->rollBack();
             return false;
@@ -414,12 +414,12 @@ class MySQL implements ConnectionInterface
         }
         return $stmt->fetchColumn();
     }
-    
+
     public function countAll($fresh = null)
     {
         $query = 'SELECT COUNT(*) as num FROM '.$this->tableName.'';
-        
-        
+
+
         if ($fresh !== null) {
             if ($fresh) {
                 $query .= ' WHERE fresh_until > '.time();
@@ -427,28 +427,28 @@ class MySQL implements ConnectionInterface
                 $query .= ' WHERE fresh_until <= '.time();
             }
         }
-        
-        
+
+
         if (!$stmt = $this->db->query($query)) {
             return false;
         }
         $stmt->execute();
         return $stmt->fetchColumn();
     }
-    
+
     public function countByTag($tag, $fresh = null)
     {
         $tags = array_values((array) $tag);
-        
+
         $query = 'SELECT COUNT(*) as num FROM '.$this->tableName.' WHERE';
-        
+
         if ($this->useFulltextTags) {
-            $tags = preg_replace('/[^a-zA-Z0-9_]/', '_', implode(' ', $tags));
+            $tags = implode(' ', array_map(function($tag) { return preg_replace('/[^a-zA-Z0-9_]/', '_', $tag); }, $tags));
             $query .= ' MATCH (tags) AGAINST ("'.$tags.'" IN BOOLEAN MODE) ';
         } else {
             $query .= ' (tags LIKE "%##'.implode('%" OR tags LIKE "%##', $tags).'%") ';
         }
-        
+
         if ($fresh !== null) {
             if ($fresh) {
                 $query .= ' AND fresh_until > '.time();
@@ -456,14 +456,14 @@ class MySQL implements ConnectionInterface
                 $query .= ' AND fresh_until <= '.time();
             }
         }
-        
+
         if (!$stmt = $this->db->query($query)) {
             return false;
         }
         $stmt->execute();
         return $stmt->fetchColumn();
     }
-    
+
     public function remove($key, $force = false)
     {
         $query = 'DELETE FROM '.$this->tableName.' WHERE id = ? ';
@@ -475,19 +475,19 @@ class MySQL implements ConnectionInterface
         $stmt = $this->db->prepare($query);
         return $stmt->execute($values);
     }
-    
+
     public function removeByTag($tag, $force = false)
     {
         $tags = array_values((array) $tag);
         $query = 'DELETE FROM '.$this->tableName.' WHERE ';
-        
+
         if ($this->useFulltextTags) {
-            $tags = preg_replace('/[^a-zA-Z0-9_]/', '_', implode(' ', $tags));
+            $tags = implode(' ', array_map(function($tag) { return preg_replace('/[^a-zA-Z0-9_]/', '_', $tag); }, $tags));
             $query .= ' MATCH (tags) AGAINST ("'.$tags.'" IN BOOLEAN MODE) ';
         } else {
             $query .= ' (tags LIKE "%##'.implode('%" OR tags LIKE "%##', $tags).'%") ';
         }
-        
+
         $values = array();
         if (!$force) {
             $query .= ' AND fresh_until < ?';
@@ -496,7 +496,7 @@ class MySQL implements ConnectionInterface
         $stmt = $this->db->prepare($query);
         return $stmt->execute($values);
     }
-    
+
     public function removeAll($force = false)
     {
         $query = 'DELETE FROM '.$this->tableName.' ';
@@ -508,7 +508,7 @@ class MySQL implements ConnectionInterface
         $stmt = $this->db->prepare($query);
         return $stmt->execute($values);
     }
-    
+
     public function outdate($key, $force = false)
     {
         $query = 'UPDATE '.$this->tableName.' SET
@@ -516,16 +516,16 @@ class MySQL implements ConnectionInterface
             queue_fresh_until = 0,
             queued = 0
             WHERE id = ? ';
-        
+
         $values = array(time()-1, $key);
         if (!$force) {
-            $query .= ' AND fresh_until < ?';
+            $query .= ' AND fresh_until >= ?';
             $values[] = time();
         }
         $stmt = $this->db->prepare($query);
         return $stmt->execute($values);
     }
-    
+
     public function outdateByTag($tag, $force = false)
     {
         $tags = array_values((array) $tag);
@@ -534,23 +534,23 @@ class MySQL implements ConnectionInterface
             queue_fresh_until = 0,
             queued = 0
             WHERE ';
-        
+
         if ($this->useFulltextTags) {
-            $tags = preg_replace('/[^a-zA-Z0-9_]/', '_', implode(' ', $tags));
+            $tags = implode(' ', array_map(function($tag) { return preg_replace('/[^a-zA-Z0-9_]/', '_', $tag); }, $tags));
             $query .= ' MATCH (tags) AGAINST ("'.$tags.'" IN BOOLEAN MODE) ';
         } else {
             $query .= ' (tags LIKE "%##'.implode('%" OR tags LIKE "%##', $tags).'%") ';
         }
-        
+
         $values = array(time()-1);
         if (!$force) {
-            $query .= ' AND fresh_until < ?';
+            $query .= ' AND fresh_until >= ?';
             $values[] = time();
         }
         $stmt = $this->db->prepare($query);
         return $stmt->execute($values);
     }
-    
+
     public function outdateAll($force = falsel)
     {
         $query = 'UPDATE '.$this->tableName.' SET
@@ -558,16 +558,16 @@ class MySQL implements ConnectionInterface
             queue_fresh_until = 0,
             queued = 0
             ';
-        
+
         $values = array(time()-1);
         if (!$force) {
-            $query .= ' WHERE fresh_until < ?';
+            $query .= ' WHERE fresh_until >= ?';
             $values[] = time();
         }
         $stmt = $this->db->prepare($query);
         return $stmt->execute($values);
     }
-    
+
     public function clearQueue($channel = true)
     {
         if ($channel !== true) {
@@ -588,7 +588,7 @@ class MySQL implements ConnectionInterface
             return $stmt->execute(array());
         }
     }
-    
+
     public function cleanup($outdatedFor = 0)
     {
         $query = 'DELETE FROM '.$this->tableName.' WHERE fresh_until < ?';
@@ -623,5 +623,5 @@ class MySQL implements ConnectionInterface
         $stmt->execute(array($key.'._lock', serialize($lockKey)));
         return true;
     }
-    
+
 }
