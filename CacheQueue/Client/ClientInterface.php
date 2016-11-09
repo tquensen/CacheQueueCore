@@ -127,9 +127,10 @@ interface ClientInterface
      * @param int $priority the execution priority of the queued job, 0=high prio/early execution, 100=low prio/late execution
      * @param int $delay number of seconds to wait before the task should run (actual delay may be greater if workers are too busy)
      * @param int $channel the queue channel, default = 1
+     * @param bool $ensureFreshQueue if the data is fresh and no job is currently in queue, queue a new job to be executed right after the data outdates
      * @return mixed the cached data or false if not found
      */
-    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1);
+    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1, $ensureFreshQueue = false);
 
     /**
      * get the data for key from cache, run a task if its not fresh 

@@ -127,13 +127,17 @@ class Basic implements ClientInterface
         return !isset($result['data']) ? false : $result['data'];
     }
 
-    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1)
+    public function getOrQueue($key, $task, $params, $freshFor, $force = false, $tags = array(), $priority = 50, $delay = 0, $channel = 1, $ensureFreshQueue = false)
     {
         if ($freshFor === true) {
             $freshFor = 315360000; // 10 years
         }
         $result = $this->connection->get($key);
         if (!$result || (!$result['is_fresh'] && !$result['queue_is_fresh']) || $force) {
+            $this->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay, $channel);
+        } elseif($ensureFreshQueue && $result['is_fresh'] && !$result['queue_is_fresh']) {
+            $resultFreshFor = $result['fresh_until'] - time();
+            $delay = $resultFreshFor + 1 + $delay; //start queue 1 second after current data becomes outdated (and add any given delay)
             $this->queue($key, $task, $params, $freshFor, $force, $tags, $priority, $delay, $channel);
         }
         return !isset($result['data']) ? false : $result['data'];
