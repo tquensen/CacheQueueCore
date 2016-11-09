@@ -216,7 +216,7 @@ interface ClientInterface
     /**
      * sets a worker which is used for getOrRun
      * 
-     * @param WorkerInterface $logger an WorkerInterface instance
+     * @param WorkerInterface $worker an WorkerInterface instance
      */
     public function setWorker(WorkerInterface $worker);
     

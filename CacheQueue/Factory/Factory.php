@@ -1,12 +1,33 @@
 <?php
 namespace CacheQueue\Factory;
         
+use CacheQueue\Client\ClientInterface;
+use CacheQueue\Connection\ConnectionInterface;
+use CacheQueue\Logger\LoggerInterface;
+use CacheQueue\Worker\WorkerInterface;
+
 class Factory implements FactoryInterface
 {
     private $config;
+
+    /**
+     * @var ClientInterface
+     */
     private $client;
+
+    /**
+     * @var WorkerInterface
+     */
     private $worker;
+
+    /**
+     * @var LoggerInterface
+     */
     private $logger;
+
+    /**
+     * @var ConnectionInterface
+     */
     private $connection;
     
     public function __construct($config)
@@ -14,6 +35,9 @@ class Factory implements FactoryInterface
         $this->config = $config;
     }
 
+    /**
+     * @return ClientInterface
+     */
     public function getClient()
     {
         if (!$this->client) {
@@ -24,6 +48,9 @@ class Factory implements FactoryInterface
         return $this->client;
     }
 
+    /**
+     * @return ConnectionInterface
+     */
     public function getConnection()
     {
         if (!$this->connection) {
@@ -33,6 +60,9 @@ class Factory implements FactoryInterface
         return $this->connection;
     }
 
+    /**
+     * @return LoggerInterface
+     */
     public function getLogger()
     {
         if (!$this->logger) {
@@ -42,6 +72,9 @@ class Factory implements FactoryInterface
         return $this->logger;
     }
 
+    /**
+     * @return WorkerInterface
+     */
     public function getWorker()
     {
         if (!$this->worker) {
